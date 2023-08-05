@@ -115,15 +115,11 @@ def run(restart):
     game.contexts = [ renpy.execution.Context(True) ]
 
     # Jump to an appropriate start label.
-    if game.script.has_label("_start"):
-        start_label = '_start'
-    else:
-        start_label = 'start'
-
+    start_label = '_start' if game.script.has_label("_start") else 'start'
     game.context().goto_label(start_label)
 
     try:
-        renpy.exports.log("--- " + time.ctime())
+        renpy.exports.log(f"--- {time.ctime()}")
         renpy.exports.log("")
     except:
         pass
@@ -134,7 +130,7 @@ def run(restart):
     # We run until we get an exception.
     renpy.display.interface.enter_context()
 
-    log_clock("Running {}".format(start_label))
+    log_clock(f"Running {start_label}")
 
     renpy.execution.run_context(True)
 

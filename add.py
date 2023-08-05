@@ -32,18 +32,19 @@ ap.add_argument("--delete-tag")
 args = ap.parse_args()
 
 if args.release:
-    subprocess.check_call([ "/home/tom/ab/renpy/scripts/checksums.py", "/home/tom/ab/renpy/dl/" + short_version ])
+    subprocess.check_call(
+        [
+            "/home/tom/ab/renpy/scripts/checksums.py",
+            f"/home/tom/ab/renpy/dl/{short_version}",
+        ]
+    )
 
 if args.delete_tag:
     for i in SOURCE:
 
         os.chdir(i)
 
-        if i == SOURCE[0]:
-            tag = args.delete_tag
-        else:
-            tag = "renpy-" + args.delete_tag
-
+        tag = args.delete_tag if i == SOURCE[0] else f"renpy-{args.delete_tag}"
         subprocess.call([ "git", "tag", "-d", tag, ])
 
     sys.exit(0)
@@ -53,7 +54,7 @@ if args.push_tags:
         os.chdir(i)
 
         if subprocess.call([ "git", "push", "--tags" ]):
-            print("Tags not pushed: {}".format(os.getcwd()))
+            print(f"Tags not pushed: {os.getcwd()}")
             sys.exit(1)
 
     print("Pushed tags.")
@@ -80,19 +81,24 @@ if tag:
         os.chdir(i)
 
         if subprocess.call([ "git", "diff", "--quiet", "HEAD" ]):
-            print("Directory not checked in: {}".format(os.getcwd()))
+            print(f"Directory not checked in: {os.getcwd()}")
             sys.exit(1)
 
     for i in SOURCE:
 
         os.chdir(i)
 
-        if i == SOURCE[0]:
-            tag = version
-        else:
-            tag = "renpy-" + version
-
-        subprocess.check_call([ "git", "tag", "-a", tag, "-m", "Tagging Ren'Py + " + version + " release." ])
+        tag = version if i == SOURCE[0] else f"renpy-{version}"
+        subprocess.check_call(
+            [
+                "git",
+                "tag",
+                "-a",
+                tag,
+                "-m",
+                f"Tagging Ren'Py + {version} release.",
+            ]
+        )
 
 
 os.chdir("/home/tom/ab/renpy/dl")

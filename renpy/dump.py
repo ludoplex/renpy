@@ -80,7 +80,7 @@ def dump(error):
     if not args.json_dump:
         return
 
-    def filter(name, filename):  # @ReservedAssignment
+    def filter(name, filename):    # @ReservedAssignment
         """
         Returns true if the name is included by the filter, or false if it is excluded.
         """
@@ -88,9 +88,7 @@ def dump(error):
         filename = filename.replace("\\", "/")
 
         if name.startswith("_") and not args.json_dump_private:
-            if name.startswith("__") and name.endswith("__"):
-                pass
-            else:
+            if not name.startswith("__") or not name.endswith("__"):
                 return False
 
         if not file_exists(filename):
@@ -99,10 +97,7 @@ def dump(error):
         if filename.startswith("common/") or filename.startswith("renpy/common/"):
             return args.json_dump_common
 
-        if not filename.startswith("game/"):
-            return False
-
-        return True
+        return bool(filename.startswith("game/"))
 
     result = { }
 
@@ -176,10 +171,7 @@ def dump(error):
         if inspect.isfunction(o):
             return inspect.getfile(o), o.func_code.co_firstlineno
 
-        if inspect.ismethod(o):
-            return get_line(o.im_func)
-
-        return None, None
+        return get_line(o.im_func) if inspect.ismethod(o) else (None, None)
 
     code = location["callable"] = { }
 
@@ -191,7 +183,7 @@ def dump(error):
         if modname == "store":
             prefix = ""
         elif modname.startswith("store."):
-            prefix = modname[6:] + "."
+            prefix = f"{modname[6:]}."
         else:
             continue
 
@@ -244,7 +236,7 @@ def dump(error):
         pass
 
     if args.json_dump != "-":
-        new = args.json_dump + ".new"
+        new = f"{args.json_dump}.new"
 
         with file(new, "w") as f:
             json.dump(result, f)

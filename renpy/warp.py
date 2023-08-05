@@ -54,7 +54,7 @@ def warp():
         raise Exception("Can't warp, developer mode disabled.")
 
     if not filename.startswith("game/"):
-        filename = "game/" + filename
+        filename = f"game/{filename}"
 
     # First, compute for each statement reachable from a scene statement,
     # one statement that reaches that statement.
@@ -78,10 +78,7 @@ def warp():
             if fn(node, old):
                 return node
 
-            if fn(old, node):
-                return old
-
-            return None
+            return old if fn(old, node) else None
 
         n = None
         n = n or prefer(lambda a, b : (a.filename == next.filename) and (b.filename != next.filename))

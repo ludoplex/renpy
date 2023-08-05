@@ -65,8 +65,6 @@ class LogFile(object):
         self.append = append
         self.developer = developer
         self.flush = flush
-        self.file = None
-
         # File-like attributes.
         self.softspace = 0
         self.newlines = None
@@ -74,8 +72,7 @@ class LogFile(object):
         # Should we emulate file's write method? We do so if this is True.
         self.raw_write = False
 
-        if renpy.ios:
-            self.file = real_stdout
+        self.file = real_stdout if renpy.ios else None
 
     def open(self):  # @ReservedAssignment
 
@@ -100,15 +97,11 @@ class LogFile(object):
             if base is None:
                 return False
 
-            fn = os.path.join(base, self.name + ".txt")
+            fn = os.path.join(base, f"{self.name}.txt")
 
-            altfn = os.path.join(tempfile.gettempdir(), "renpy-" + self.name + ".txt")
+            altfn = os.path.join(tempfile.gettempdir(), f"renpy-{self.name}.txt")
 
-            if self.append:
-                mode = "a"
-            else:
-                mode = "w"
-
+            mode = "a" if self.append else "w"
             if renpy.config.log_to_stdout:
                 self.file = real_stdout
 
@@ -222,11 +215,7 @@ class StdioRedirector(object):
 
     def write(self, s):
 
-        if isinstance(s, unicode):
-            es = s.encode("utf-8")
-        else:
-            es = s
-
+        es = s.encode("utf-8") if isinstance(s, unicode) else s
         self.real_file.write(es)
         self.real_file.flush()
 
@@ -260,7 +249,6 @@ class StdioRedirector(object):
 
     def flush(self):
         self.real_file.flush()
-        pass
 
     def close(self):
         pass

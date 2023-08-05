@@ -205,10 +205,7 @@ class Preferences(renpy.object.Object):
         if mixer not in self.volumes:
             return 0.0
 
-        if self.mute.get(mixer, False):
-            return 0.0
-
-        return self.volumes[mixer]
+        return 0.0 if self.mute.get(mixer, False) else self.volumes[mixer]
 
     def set_mute(self, mixer, mute):
         self.mute[mixer] = mute
@@ -217,10 +214,7 @@ class Preferences(renpy.object.Object):
             self.volumes[mixer] = 1.0
 
     def get_mute(self, mixer):
-        if mixer not in self.volumes:
-            return False
-
-        return self.mute[mixer]
+        return False if mixer not in self.volumes else self.mute[mixer]
 
     def init_mixers(self):
         for i in renpy.audio.music.get_all_mixers():

@@ -299,7 +299,7 @@ def clean_store(name):
     """
 
     if not name.startswith("store."):
-        name = "store." + name
+        name = f"store.{name}"
 
     clean_store_backup.restore_one(name)
 
@@ -307,7 +307,7 @@ def clean_store(name):
 def reset_store_changes(name):
 
     if not name.startswith("store."):
-        name = "store." + name
+        name = f"store.{name}"
 
     sd = store_dicts[name]
     sd.begin()
@@ -533,11 +533,9 @@ def unicode_sub(m):
     body = m.group(3)
 
     if "u" not in prefix and "U" not in prefix:
-        prefix = 'u' + prefix
+        prefix = f'u{prefix}'
 
-    rv = prefix + sep + body + sep
-
-    return rv
+    return prefix + sep + body + sep
 
 
 string_re = re.compile(r'([uU]?[rR]?)("""|"|\'\'\'|\')((\\.|.)*?)\2')
@@ -781,11 +779,7 @@ class CompressedList(object):
         return self.pre + new[self.start:self.end] + self.post
 
     def __repr__(self):
-        return "<CompressedList {} [{}:{}] {}>".format(
-            self.pre,
-            self.start,
-            self.end,
-            self.post)
+        return f"<CompressedList {self.pre} [{self.start}:{self.end}] {self.post}>"
 
 
 class RevertableList(list):
@@ -823,7 +817,9 @@ class RevertableList(list):
 
     def __mul__(self, other):
         if not isinstance(other, int):
-            raise TypeError("can't multiply sequence by non-int of type '{}'.".format(type(other).__name__))
+            raise TypeError(
+                f"can't multiply sequence by non-int of type '{type(other).__name__}'."
+            )
 
         return RevertableList(list.__mul__(self, other))
 
@@ -932,8 +928,7 @@ class RevertableSet(set):
             self.update(state)
 
     def __getstate__(self):
-        rv = ({ i : True for i in self}, )
-        return rv
+        return ({ i : True for i in self}, )
 
     # Required to ensure that getstate and setstate are called.
     __reduce__ = object.__reduce__
@@ -965,10 +960,7 @@ class RevertableSet(set):
     def wrapper(method):  # @NoSelf
         def newmethod(*args, **kwargs):
             rv = method(*args, **kwargs)
-            if isinstance(rv, (set, frozenset)):
-                return RevertableSet(rv)
-            else:
-                return rv
+            return RevertableSet(rv) if isinstance(rv, (set, frozenset)) else rv
 
         return newmethod
 
@@ -1040,11 +1032,7 @@ class DetRandom(random.Random):
 
     def random(self):
 
-        if self.stack:
-            rv = self.stack.pop()
-        else:
-            rv = super(DetRandom, self).random()
-
+        rv = self.stack.pop() if self.stack else super(DetRandom, self).random()
         log = renpy.game.log
 
         if log.current is not None:
@@ -1216,11 +1204,8 @@ class Rollback(renpy.object.Object):
             if reachable.get(id(o), 0):
                 new_objects.append((o, rb))
                 reached(rb, reachable, wait)
-            else:
-                if renpy.config.debug:
-                    print("Removing unreachable:", o, file=renpy.log.real_stdout)
-                    pass
-
+            elif renpy.config.debug:
+                print("Removing unreachable:", o, file=renpy.log.real_stdout)
         self.objects = new_objects
 
         return True
@@ -1339,12 +1324,7 @@ class RollbackLog(renpy.object.Object):
             # We changed what the rollback limit represents, so recompute it
             # here.
             if self.rollback_limit:
-                nrbl = 0
-
-                for rb in self.log[-self.rollback_limit:]:
-                    if rb.hard_checkpoint:
-                        nrbl += 1
-
+                nrbl = sum(1 for rb in self.log[-self.rollback_limit:] if rb.hard_checkpoint)
                 self.rollback_limit = nrbl
 
     def begin(self, force=False):
@@ -1369,11 +1349,8 @@ class RollbackLog(renpy.object.Object):
         elif self.did_interaction:
             ignore = False
         elif self.current is not None:
-            if self.current.checkpoint:
+            if self.current.checkpoint or self.current.retain_after_load:
                 ignore = False
-            elif self.current.retain_after_load:
-                ignore = False
-
         if ignore:
             return
 
@@ -1480,11 +1457,7 @@ class RollbackLog(renpy.object.Object):
 
         for store_name, sd in store_dicts.iteritems():
             for name in sd.ever_been_changed:
-                if name in sd:
-                    rv[store_name + "." + name] = sd[name]
-                else:
-                    rv[store_name + "." + name] = deleted
-
+                rv[f"{store_name}.{name}"] = sd[name] if name in sd else deleted
         for i in reversed(renpy.game.contexts[1:]):
             i.pop_dynamic_roots(rv)
 
@@ -1511,10 +1484,7 @@ class RollbackLog(renpy.object.Object):
                 break
 
     def in_rollback(self):
-        if self.forward:
-            return True
-        else:
-            return False
+        return bool(self.forward)
 
     def in_fixed_rollback(self):
         return self.rollback_is_fixed
@@ -1727,13 +1697,9 @@ class RollbackLog(renpy.object.Object):
         else:
             replace_context = True
             other_contexts = renpy.game.contexts[1:]
-            renpy.game.contexts = renpy.game.contexts[0:1]
+            renpy.game.contexts = renpy.game.contexts[:1]
 
-        if on_load and revlog[-1].retain_after_load:
-            retained = revlog.pop()
-        else:
-            retained = None
-
+        retained = revlog.pop() if on_load and revlog[-1].retain_after_load else None
         come_from = None
 
         if current_label is not None:

@@ -58,10 +58,7 @@ def dumps(o):
 
 
 def loads(s):
-    if renpy.config.use_cpickle:
-        return cPickle.loads(s)
-    else:
-        return pickle.loads(s)
+    return cPickle.loads(s) if renpy.config.use_cpickle else pickle.loads(s)
 
 
 # This is used as a quick and dirty way of versioning savegame
@@ -92,13 +89,13 @@ def save_dump(roots, log):
             if len(o) <= 80:
                 o_repr = repr(o).encode("utf-8")
             else:
-                o_repr = repr(o[:80] + "...").encode("utf-8")
+                o_repr = repr(f"{o[:80]}...").encode("utf-8")
 
         elif isinstance(o, (tuple, list)):
-            o_repr = "<" + o.__class__.__name__ + ">"
+            o_repr = f"<{o.__class__.__name__}>"
 
         elif isinstance(o, dict):
-            o_repr = "<" + o.__class__.__name__ + ">"
+            o_repr = f"<{o.__class__.__name__}>"
 
         elif isinstance(o, types.MethodType):
             o_repr = "<method {0}.{1}>".format(o.im_class.__name__, o.im_func.__name__)
@@ -130,7 +127,7 @@ def save_dump(roots, log):
                 size += visit(v, "{0}[{1!r}]".format(path, k))
 
         elif isinstance(o, types.MethodType):
-            size = 1 + visit(o.im_self, path + ".im_self")
+            size = 1 + visit(o.im_self, f"{path}.im_self")
 
         else:
 
@@ -138,7 +135,7 @@ def save_dump(roots, log):
                 reduction = o.__reduce_ex__(2)
             except:
                 reduction = [ ]
-                o_repr = "BAD REDUCTION " + o_repr
+                o_repr = f"BAD REDUCTION {o_repr}"
 
             # Gets an element from the reduction, or o if we don't have
             # such an element.
@@ -156,9 +153,9 @@ def save_dump(roots, log):
             if isinstance(state, dict):
                 for k, v in state.iteritems():
                     size += 2
-                    size += visit(v, path + "." + k)
+                    size += visit(v, f"{path}.{k}")
             else:
-                size += visit(state, path + ".__getstate__()")
+                size += visit(state, f"{path}.__getstate__()")
 
             for i, oo in enumerate(get(3, [])):
                 size += 1
@@ -217,7 +214,7 @@ def find_bad_reduction(roots, log):
                     return rv
 
         elif isinstance(o, types.MethodType):
-            return visit(o.im_self, path + ".im_self")
+            return visit(o.im_self, f"{path}.im_self")
 
         elif isinstance(o, types.ModuleType):
 
@@ -250,11 +247,11 @@ def find_bad_reduction(roots, log):
             state = get(2, { })
             if isinstance(state, dict):
                 for k, v in state.iteritems():
-                    rv = visit(v, path + "." + k)
+                    rv = visit(v, f"{path}.{k}")
                     if rv is not None:
                         return rv
             else:
-                rv = visit(state, path + ".__getstate__()")
+                rv = visit(state, f"{path}.__getstate__()")
                 if rv is not None:
                     return rv
 
@@ -341,7 +338,7 @@ class SaveRecord(object):
         This writes a standard-format savefile to `filename`.
         """
 
-        filename_new = filename + ".new"
+        filename_new = f"{filename}.new"
 
         # For speed, copy the file after we've written it at least once.
         if self.first_filename is not None:
@@ -417,7 +414,7 @@ def save(slotname, extra_info='', mutate_flag=False):
         if bad is None:
             raise t, e, tb
 
-        e.args = ( e.args[0] + ' (perhaps {})'.format(bad), ) + e.args[1:]
+        e.args = (f'{e.args[0]} (perhaps {bad})', ) + e.args[1:]
         raise t, e, tb
 
     if mutate_flag and renpy.python.mutate_flag:
@@ -453,23 +450,21 @@ def autosave_thread(take_screenshot):
 
     try:
 
-        try:
+        cycle_saves("auto-", renpy.config.autosave_slots)
 
-            cycle_saves("auto-", renpy.config.autosave_slots)
+        if renpy.config.auto_save_extra_info:
+            extra_info = renpy.config.auto_save_extra_info()
+        else:
+            extra_info = ""
 
-            if renpy.config.auto_save_extra_info:
-                extra_info = renpy.config.auto_save_extra_info()
-            else:
-                extra_info = ""
+        if take_screenshot:
+            renpy.exports.take_screenshot(background=True)
 
-            if take_screenshot:
-                renpy.exports.take_screenshot(background=True)
+        save("auto-1", mutate_flag=True, extra_info=extra_info)
+        autosave_counter = 0
 
-            save("auto-1", mutate_flag=True, extra_info=extra_info)
-            autosave_counter = 0
-
-        except:
-            pass
+    except:
+        pass
 
     finally:
         autosave_not_running.set()
@@ -553,10 +548,7 @@ def scan_saved_game(slotname):
 
     screenshot = c.get_screenshot()
 
-    if screenshot is None:
-        return None
-
-    return extra_info, screenshot, mtime
+    return None if screenshot is None else (extra_info, screenshot, mtime)
 
 
 def list_saved_games(regexp=r'.', fast=False):
@@ -599,11 +591,7 @@ def list_saved_games(regexp=r'.', fast=False):
 
         if c is not None:
             json = c.get_json()
-            if json is not None:
-                extra_info = json.get("_save_name", "")
-            else:
-                extra_info = ""
-
+            extra_info = json.get("_save_name", "") if json is not None else ""
             screenshot = c.get_screenshot()
             mtime = c.get_mtime()
 
@@ -712,10 +700,7 @@ def can_load(filename, test=False):
 
     c = get_cache(filename)
 
-    if c.get_mtime():
-        return True
-    else:
-        return False
+    return bool(c.get_mtime())
 
 
 def load(filename):
@@ -900,6 +885,3 @@ def init():
 # Save locations are places where saves are saved to or loaded from, or a
 # collection of such locations. This is the default save location.
 location = None
-
-if False:
-    location = renpy.savelocation.FileLocation("blah")

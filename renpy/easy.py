@@ -43,10 +43,7 @@ def lookup_displayable_prefix(d):
         return None
 
     fn = renpy.config.displayable_prefix.get(prefix, None)
-    if fn is None:
-        return None
-
-    return displayable(fn(arg))
+    return None if fn is None else displayable(fn(arg))
 
 
 def displayable_or_none(d, scope=None, dynamic=True):
@@ -169,11 +166,7 @@ def dynamic_image(d, scope=None, prefix=None, search=None):
 
         if (prefix is not None) and ("[prefix_" in i):
 
-            if scope:
-                scope = dict(scope)
-            else:
-                scope = { }
-
+            scope = dict(scope) if scope else { }
             for p in renpy.styledata.stylesets.prefix_search[prefix]:  # @UndefinedVariable
                 scope["prefix_"] = p
 
@@ -199,10 +192,7 @@ def dynamic_image(d, scope=None, prefix=None, search=None):
 
         rv = d[-1]
 
-        if find(rv):
-            return displayable_or_none(rv, dynamic=False)
-
-        return None
+        return displayable_or_none(rv, dynamic=False) if find(rv) else None
 
 
 def predict(d):
@@ -237,11 +227,7 @@ def split_properties(properties, *prefixes):
         text_properties, button_properties = renpy.split_properties(properties, "text_", "")
     """
 
-    rv = [ ]
-
-    for _i in prefixes:
-        rv.append({})
-
+    rv = [{} for _i in prefixes]
     if not properties:
         return rv
 
@@ -253,6 +239,6 @@ def split_properties(properties, *prefixes):
                 d[k[len(prefix):]] = v
                 break
         else:
-            raise Exception("Property {} begins with an unknown prefix.".format(k))
+            raise Exception(f"Property {k} begins with an unknown prefix.")
 
     return rv

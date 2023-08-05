@@ -101,7 +101,7 @@ class ParameterInfo(object):
         for name, value in zip(self.positional, args):
             if name in values:
                 if not ignore_errors:
-                    raise Exception("Parameter %s has two values." % name)
+                    raise Exception(f"Parameter {name} has two values.")
 
             values[name] = value
 
@@ -110,22 +110,21 @@ class ParameterInfo(object):
         for name, value in kwargs.iteritems():
             if name in values:
                 if not ignore_errors:
-                    raise Exception("Parameter %s has two values." % name)
+                    raise Exception(f"Parameter {name} has two values.")
 
             values[name] = value
 
         for name, default in self.parameters:
 
-            if name not in values:
-                if default is None:
-                    if not ignore_errors:
-                        raise Exception("Required parameter %s has no value." % name)
-                else:
-                    rv[name] = renpy.python.py_eval(default)
-
-            else:
+            if name in values:
                 rv[name] = values[name]
                 del values[name]
+
+            elif default is None:
+                if not ignore_errors:
+                    raise Exception(f"Required parameter {name} has no value.")
+            else:
+                rv[name] = renpy.python.py_eval(default)
 
         # Now, values has the left-over keyword arguments, and extrapos
         # has the left-over positional arguments.
@@ -138,7 +137,7 @@ class ParameterInfo(object):
         if self.extrakw:
             rv[self.extrakw] = values
         elif values and not ignore_errors:
-            raise Exception("Unknown keyword arguments: %s" % ( ", ".join(values.keys())))
+            raise Exception(f'Unknown keyword arguments: {", ".join(values.keys())}')
 
         return rv
 
@@ -199,15 +198,15 @@ class ArgumentInfo(object):
 
         for keyword, expression in self.arguments:
             if keyword is not None:
-                l.append("{}={}".format(keyword, expression))
+                l.append(f"{keyword}={expression}")
             else:
                 l.append(expression)
 
         if self.extrapos is not None:
-            l.append("*" + self.extrapos)
+            l.append(f"*{self.extrapos}")
 
         if self.extrakw is not None:
-            l.append("**" + self.extrakw)
+            l.append(f"**{self.extrakw}")
 
         return "(" + ", ".join(l) + ")"
 
@@ -332,11 +331,10 @@ class Scry(object):
     def next(self):  # @ReservedAssignment
         if self._next is None:
             return None
-        else:
-            try:
-                return self._next.scry()
-            except:
-                return None
+        try:
+            return self._next.scry()
+        except:
+            return None
 
 
 class Node(object):
@@ -457,10 +455,7 @@ class Node(object):
         renpy.display.predict.screen to be called as necessary.
         """
 
-        if self.next:
-            return [ self.next ]
-        else:
-            return [ ]
+        return [ self.next ] if self.next else [ ]
 
     def scry(self):
         """
@@ -559,7 +554,7 @@ def eval_who(who, fast=None):
             rv = renpy.python.store_dicts['store'].get(who, None)
 
         if rv is None:
-            raise Exception("Sayer '%s' is not defined." % who.encode("utf-8"))
+            raise Exception(f"""Sayer '{who.encode("utf-8")}' is not defined.""")
 
         return rv
 
@@ -596,10 +591,7 @@ class Say(Node):
             self.who = who.strip()
 
             # True if who is a simple enough expression we can just look it up.
-            if re.match(renpy.parser.word_regexp + "$", self.who):
-                self.who_fast = True
-            else:
-                self.who_fast = False
+            self.who_fast = bool(re.match(f"{renpy.parser.word_regexp}$", self.who))
         else:
             self.who = None
             self.who_fast = False
@@ -632,9 +624,7 @@ class Say(Node):
             rv.append("nointeract")
 
         if self.with_:
-            rv.append("with")
-            rv.append(self.with_)
-
+            rv.extend(("with", self.with_))
         if self.arguments:
             rv.append(self.arguments.get_code())
 
@@ -657,7 +647,9 @@ class Say(Node):
                     callable(who) or
                     isinstance(who, basestring) ):
 
-                raise Exception("Sayer %s is not a function or string." % self.who.encode("utf-8"))
+                raise Exception(
+                    f'Sayer {self.who.encode("utf-8")} is not a function or string.'
+                )
 
             what = self.what
             if renpy.config.say_menu_text_filter:
@@ -669,7 +661,7 @@ class Say(Node):
                 args, kwargs = self.arguments.evaluate()
             else:
                 args = tuple()
-                kwargs = dict()
+                kwargs = {}
 
             if getattr(who, "record_say", True):
                 renpy.store._last_say_who = self.who
@@ -1101,11 +1093,7 @@ def show_imspec(imspec, atl=None):
         zorder = None
         behind = [ ]
 
-    if zorder is not None:
-        zorder = renpy.python.py_eval(zorder)
-    else:
-        zorder = None
-
+    zorder = renpy.python.py_eval(zorder) if zorder is not None else None
     if expression is not None:
         expression = renpy.python.py_eval(expression)
         expression = renpy.easy.displayable(expression)
@@ -1227,11 +1215,7 @@ class Scene(Node):
 
     def diff_info(self):
 
-        if self.imspec:
-            data = tuple(self.imspec[0])
-        else:
-            data = None
-
+        data = tuple(self.imspec[0]) if self.imspec else None
         return (Scene, data)
 
     def execute(self):
@@ -1352,19 +1336,13 @@ class With(Node):
 
         trans = renpy.python.py_eval(self.expr)
 
-        if self.paired is not None:
-            paired = renpy.python.py_eval(self.paired)
-        else:
-            paired = None
-
+        paired = renpy.python.py_eval(self.paired) if self.paired is not None else None
         renpy.exports.with_statement(trans, paired)
 
     def predict(self):
 
         try:
-            trans = renpy.python.py_eval(self.expr)
-
-            if trans:
+            if trans := renpy.python.py_eval(self.expr):
                 renpy.display.predict.displayable(trans(old_widget=None, new_widget=None))
 
         except:
@@ -1627,18 +1605,11 @@ class Jump(Node):
 
     def predict(self):
 
-        if self.expression:
-            return [ ]
-        else:
-            return [ renpy.game.script.lookup(self.target) ]
+        return [ ] if self.expression else [ renpy.game.script.lookup(self.target) ]
 
     def scry(self):
         rv = Node.scry(self)
-        if self.expression:
-            rv._next = None
-        else:
-            rv._next = renpy.game.script.lookup(self.target)
-
+        rv._next = None if self.expression else renpy.game.script.lookup(self.target)
         return rv
 
 
@@ -1874,10 +1845,7 @@ class UserStatement(Node):
         else:
             rv = self.call("next")
 
-        if rv is not None:
-            return renpy.game.script.lookup(rv)
-        else:
-            return self.next
+        return renpy.game.script.lookup(rv) if rv is not None else self.next
 
     def scry(self):
         rv = Node.scry(self)
@@ -1890,10 +1858,7 @@ class UserStatement(Node):
 
     def can_warp(self):
 
-        if self.call("warp"):
-            return True
-
-        return False
+        return bool(self.call("warp"))
 
 
 def create_store(name):
@@ -1972,7 +1937,13 @@ class Define(Node):
             renpy.exports.pure(self.varname)
             renpy.dump.definitions.append((self.varname, self.filename, self.linenumber))
         else:
-            renpy.dump.definitions.append((self.store[6:] + "." + self.varname, self.filename, self.linenumber))
+            renpy.dump.definitions.append(
+                (
+                    f"{self.store[6:]}.{self.varname}",
+                    self.filename,
+                    self.linenumber,
+                )
+            )
 
         ns, _special = get_namespace(self.store)
         ns.set(self.varname, value)
@@ -2046,7 +2017,13 @@ class Default(Node):
         if self.store == 'store':
             renpy.dump.definitions.append((self.varname, self.filename, self.linenumber))
         else:
-            renpy.dump.definitions.append((self.store[6:] + "." + self.varname, self.filename, self.linenumber))
+            renpy.dump.definitions.append(
+                (
+                    f"{self.store[6:]}.{self.varname}",
+                    self.filename,
+                    self.linenumber,
+                )
+            )
 
     def set_default(self, start):
         d = renpy.python.store_dicts[self.store]
@@ -2066,10 +2043,10 @@ class Default(Node):
 
             defaults_set.add(self.varname)
 
-        else:
-
-            if start and renpy.config.developer:
-                raise Exception("{}.{} is being given a default a second time.".format(self.store, self.varname))
+        elif start and renpy.config.developer:
+            raise Exception(
+                f"{self.store}.{self.varname} is being given a default a second time."
+            )
 
     def report_traceback(self, name, last):
         return [ (self.filename, self.linenumber, name, None) ]
@@ -2416,7 +2393,7 @@ class Style(Node):
                 value = renpy.python.py_eval(expr)
 
                 if name == "properties":
-                    properties.update(value)
+                    properties |= value
                 else:
                     properties[name] = value
 

@@ -157,11 +157,7 @@ def insert_line_before(code, filename, linenumber):
     old_line = lines[filename, linenumber]
 
     m = re.match(r' *', old_line.text)
-    indent = m.group(0)
-
-    if not code:
-        indent = ''
-
+    indent = '' if not code else m[0]
     if old_line.text.endswith("\r\n") or not old_line.text.endswith("\n"):
         line_ending = "\r\n"
     else:
@@ -248,13 +244,11 @@ def nodes_on_line(filename, linenumber):
 
     ensure_loaded(filename)
 
-    rv = [ ]
-
-    for i in renpy.game.script.all_stmts:
-        if (i.filename == filename) and (i.linenumber == linenumber):
-            rv.append(i)
-
-    return rv
+    return [
+        i
+        for i in renpy.game.script.all_stmts
+        if (i.filename == filename) and (i.linenumber == linenumber)
+    ]
 
 
 def nodes_on_line_at_or_after(filename, linenumber):
@@ -269,10 +263,7 @@ def nodes_on_line_at_or_after(filename, linenumber):
               if (i.filename == filename)
               if (i.linenumber >= linenumber) ]
 
-    if not lines:
-        return [ ]
-
-    return nodes_on_line(filename, min(lines))
+    return [ ] if not lines else nodes_on_line(filename, min(lines))
 
 
 def first_and_last_nodes(nodes):

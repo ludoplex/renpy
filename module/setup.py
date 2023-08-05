@@ -45,7 +45,7 @@ generate_styles.generate()
 
 # If RENPY_CC or RENPY_LD are in the environment, and CC or LD are not, use them.
 def setup_env(name):
-    renpy_name = "RENPY_" + name
+    renpy_name = f"RENPY_{name}"
     if (renpy_name in os.environ) and (name not in os.environ):
         os.environ[name] = os.environ[renpy_name]
 
@@ -81,7 +81,10 @@ include("libavformat/avformat.h", directory="ffmpeg", optional=True) or include(
 include("libavcodec/avcodec.h", directory="ffmpeg", optional=True) or include("libavcodec/avcodec.h")
 include("libswscale/swscale.h", directory="ffmpeg", optional=True) or include("libswscale/swscale.h")
 include("GL/glew.h")
-include("pygame_sdl2/pygame_sdl2.h", directory="python{}.{}".format(sys.version_info.major, sys.version_info.minor))
+include(
+    "pygame_sdl2/pygame_sdl2.h",
+    directory=f"python{sys.version_info.major}.{sys.version_info.minor}",
+)
 
 library("SDL2")
 library("png")
@@ -109,8 +112,10 @@ steam_sdk = os.environ.get("RENPY_STEAM_SDK", None)
 steam_platform = os.environ.get("RENPY_STEAM_PLATFORM", "")
 
 if steam_sdk:
-    setuplib.library_dirs.append("{}/redistributable_bin/{}".format(steam_sdk, steam_platform))
-    setuplib.include_dirs.append("{}/public".format(steam_sdk))
+    setuplib.library_dirs.append(
+        f"{steam_sdk}/redistributable_bin/{steam_platform}"
+    )
+    setuplib.include_dirs.append(f"{steam_sdk}/public")
 
 # Modules directory.
 cython(
@@ -135,14 +140,12 @@ renpybidicore.c
 cython(
     "_renpybidi",
     FRIBIDI_SOURCES,
-    includes=[
-        BASE + "/fribidi-src/",
-        BASE + "/fribidi-src/lib/",
-        ],
+    includes=[f"{BASE}/fribidi-src/", f"{BASE}/fribidi-src/lib/"],
     define_macros=[
         ("FRIBIDI_ENTRY", ""),
         ("HAVE_CONFIG_H", "1"),
-        ])
+    ],
+)
 
 
 cython("_renpysteam", language="c++", compile_if=steam_sdk, libs=["steam_api"])
@@ -178,7 +181,10 @@ cython("renpy.styledata.styleclass")
 cython("renpy.styledata.stylesets")
 
 for p in generate_styles.prefixes:
-    cython("renpy.styledata.style_{}functions".format(p), pyx=setuplib.gen + "/style_{}functions.pyx".format(p))
+    cython(
+        f"renpy.styledata.style_{p}functions",
+        pyx=f"{setuplib.gen}/style_{p}functions.pyx",
+    )
 
 # renpy.display
 cython("renpy.display.render", libs=[ 'z', 'm' ])
@@ -215,7 +221,12 @@ cython("renpy.gl.glrtt_fbo", libs=glew_libs)
 if not (android or ios):
     # renpy.angle
     def anglecopy(fn):
-        copyfile("renpy/gl/" + fn, "renpy/angle/" + fn, "DEF ANGLE = False", "DEF ANGLE = True")
+        copyfile(
+            f"renpy/gl/{fn}",
+            f"renpy/angle/{fn}",
+            "DEF ANGLE = False",
+            "DEF ANGLE = True",
+        )
 
     anglecopy("glblacklist.py")
     anglecopy("gldraw.pxd")

@@ -137,16 +137,12 @@ def enable_trace(level):
 
     trace_file = file("trace.txt", "w", 1)
 
-    if level > 1:
-        trace_local = trace_function
-    else:
-        trace_local = None
-
+    trace_local = trace_function if level > 1 else None
     sys.settrace(trace_function)
 
 
 def mac_start(fn):
-    os.system("open " + fn)
+    os.system(f"open {fn}")
 
 # This code fixes a bug in subprocess.Popen.__del__
 
@@ -168,9 +164,9 @@ def bootstrap(renpy_base):
     renpy_base = unicode(renpy_base, FSENCODING, "replace")
 
     # If environment.txt exists, load it into the os.environ dictionary.
-    if os.path.exists(renpy_base + "/environment.txt"):
+    if os.path.exists(f"{renpy_base}/environment.txt"):
         evars = { }
-        execfile(renpy_base + "/environment.txt", evars)
+        execfile(f"{renpy_base}/environment.txt", evars)
         for k, v in evars.iteritems():
             if k not in os.environ:
                 os.environ[k] = str(v)
@@ -181,9 +177,9 @@ def bootstrap(renpy_base):
     if ".app" in alt_path:
         alt_path = alt_path[:alt_path.find(".app")+4]
 
-        if os.path.exists(alt_path + "/environment.txt"):
+        if os.path.exists(f"{alt_path}/environment.txt"):
             evars = { }
-            execfile(alt_path + "/environment.txt", evars)
+            execfile(f"{alt_path}/environment.txt", evars)
             for k, v in evars.iteritems():
                 if k not in os.environ:
                     os.environ[k] = str(v)
@@ -217,7 +213,7 @@ def bootstrap(renpy_base):
         prefix = game_name[0]
         game_name = game_name[1:]
 
-        if prefix == ' ' or prefix == '_':
+        if prefix in [' ', '_']:
             gamedirs.append(game_name)
 
     gamedirs.extend([ 'game', 'data', 'launcher/game' ])
@@ -227,7 +223,7 @@ def bootstrap(renpy_base):
         if i == "renpy":
             continue
 
-        gamedir = basedir + "/" + i
+        gamedir = f"{basedir}/{i}"
         if os.path.isdir(gamedir):
             break
     else:
@@ -250,7 +246,7 @@ def bootstrap(renpy_base):
     # won't import.)
     try:
         import pygame_sdl2
-        if not ("pygame" in sys.modules):
+        if "pygame" not in sys.modules:
             pygame_sdl2.import_as_pygame()
     except:
         print("""\
@@ -338,8 +334,6 @@ You may be using a system install of python. Please run {0}.sh,
 
             except Exception as e:
                 renpy.error.report_exception(e)
-                pass
-
         sys.exit(exit_status)
 
     finally:

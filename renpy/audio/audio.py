@@ -68,8 +68,7 @@ def load(fn):
     Returns a file-like object for the given filename.
     """
 
-    rv = renpy.loader.load(fn)
-    return rv
+    return renpy.loader.load(fn)
 
 
 class QueueEntry(object):
@@ -298,8 +297,8 @@ class Channel(object):
         if not m:
             return filename, 0, -1
 
-        spec = m.group(1)
-        fn = m.group(2)
+        spec = m[1]
+        fn = m[2]
 
         spec = spec.split()
 
@@ -352,10 +351,7 @@ class Channel(object):
         if force_stop:
             self.wait_stop = False
 
-            if self.loop:
-                self.queue = self.queue[-len(self.loop):]
-            else:
-                self.queue = [ ]
+            self.queue = self.queue[-len(self.loop):] if self.loop else [ ]
             return
 
         # Should we do the callback?
@@ -559,10 +555,7 @@ class Channel(object):
                 self.wait_stop = synchro_start
                 self.synchro_start = synchro_start
 
-            if loop:
-                self.loop = list(filenames)
-            else:
-                self.loop = [ ]
+            self.loop = list(filenames) if loop else [ ]
 
     def get_playing(self):
 
@@ -588,17 +581,11 @@ class Channel(object):
 
     def get_pos(self):
 
-        if not pcm_ok:
-            return -1
-
-        return renpysound.get_pos(self.number)
+        return -1 if not pcm_ok else renpysound.get_pos(self.number)
 
     def get_duration(self):
 
-        if not pcm_ok:
-            return 0.0
-
-        return renpysound.get_duration(self.number)
+        return 0.0 if not pcm_ok else renpysound.get_duration(self.number)
 
     def set_pan(self, pan, delay):
 
@@ -633,17 +620,11 @@ class Channel(object):
             renpysound.unpause(self.number)
 
     def read_video(self):
-        if pcm_ok:
-            return renpysound.read_video(self.number)
-
-        return None
+        return renpysound.read_video(self.number) if pcm_ok else None
 
     def video_ready(self):
 
-        if not pcm_ok:
-            return 1
-
-        return renpysound.video_ready(self.number)
+        return 1 if not pcm_ok else renpysound.video_ready(self.number)
 
 
 # Use unconditional imports so these files get compiled during the build
@@ -751,7 +732,7 @@ def get_channel(name):
             i = 0
 
             while True:
-                c = get_channel("{} {}".format(name, i))
+                c = get_channel(f"{name} {i}")
 
                 if not c.get_playing():
                     return c
@@ -763,7 +744,6 @@ def get_channel(name):
 
                 i += 1
 
-        # One of the channels that was just defined.
         elif " " in name:
 
             base = name.split()[0]
@@ -943,11 +923,11 @@ def periodic_pass():
 
         for c in all_channels:
 
-            if c.synchro_start and c.wait_stop:
-                need_ss = False
-                break
+            if c.synchro_start:
+                if c.wait_stop:
+                    need_ss = False
+                    break
 
-            if c.synchro_start and not c.wait_stop:
                 need_ss = True
 
         if need_ss:
@@ -1044,13 +1024,13 @@ def interact():
                     continue
 
                 filenames = ctx.last_filenames
-                tight = ctx.last_tight
-
                 if c.loop:
                     if not filenames or c.get_playing() not in filenames:
                         c.fadeout(renpy.config.fade_music)
 
                 if filenames:
+                    tight = ctx.last_tight
+
                     c.enqueue(filenames, loop=True, synchro_start=True, tight=tight)
 
                 c.last_changed = ctx.last_changed

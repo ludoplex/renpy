@@ -71,8 +71,6 @@ try:
             android.apk.APK(apk=expansion, prefix='assets/x-renpy/x-common/'),
             ]
 
-        game_apks = [ apks[0] ]
-
     else:
         print("Not using expansion file.")
 
@@ -81,7 +79,7 @@ try:
             android.apk.APK(prefix='assets/x-renpy/x-common/'),
             ]
 
-        game_apks = [ apks[0] ]
+    game_apks = [ apks[0] ]
 
 except ImportError:
     apks = [ ]
@@ -124,7 +122,7 @@ def index_archives():
     for prefix in renpy.config.archives:
 
         try:
-            fn = transfn(prefix + ".rpa")
+            fn = transfn(f"{prefix}.rpa")
             f = file(fn, "rb")
             l = f.readline()
 
@@ -161,7 +159,7 @@ def index_archives():
             # 1.0 Branch.
             f.close()
 
-            fn = transfn(prefix + ".rpi")
+            fn = transfn(f"{prefix}.rpi")
             index = loads(file(fn, "rb").read().decode("zlib"))
             archives.append((prefix, index))
         except:
@@ -186,9 +184,8 @@ def walkdir(dir):  # @ReservedAssignment
         except:
             continue
 
-        if os.path.isdir(dir + "/" + i):
-            for fn in walkdir(dir + "/" + i):
-                rv.append(i + "/" + fn)
+        if os.path.isdir(f"{dir}/{i}"):
+            rv.extend(f"{i}/{fn}" for fn in walkdir(f"{dir}/{i}"))
         else:
             rv.append(i)
 
@@ -241,11 +238,7 @@ def scandirfiles():
 
     for apk in apks:
 
-        if apk not in game_apks:
-            files = common_files  # @UnusedVariable
-        else:
-            files = game_files  # @UnusedVariable
-
+        files = common_files if apk not in game_apks else game_files
         for f in apk.list():
 
             # Strip off the "x-" in front of each filename, which is there
@@ -281,10 +274,7 @@ def listdirfiles(common=True):
     if (not game_files) and (not common_files):
         scandirfiles()
 
-    if common:
-        return game_files + common_files
-    else:
-        return list(game_files)
+    return game_files + common_files if common else list(game_files)
 
 
 class SubFile(object):
@@ -299,10 +289,7 @@ class SubFile(object):
         self.length = length
         self.start = start
 
-        if not self.start:
-            self.name = fn
-        else:
-            self.name = None
+        self.name = fn if not self.start else None
 
     def open(self):
         self.f = open(self.fn, "rb")
@@ -322,11 +309,7 @@ class SubFile(object):
 
         maxlength = self.length - self.offset
 
-        if length is not None:
-            length = min(length, maxlength)
-        else:
-            length = maxlength
-
+        length = min(length, maxlength) if length is not None else maxlength
         rv1 = self.start[self.offset:self.offset + length]
         length -= len(rv1)
         self.offset += len(rv1)
@@ -345,11 +328,7 @@ class SubFile(object):
             self.open()
 
         maxlength = self.length - self.offset
-        if length is not None:
-            length = min(length, maxlength)
-        else:
-            length = maxlength
-
+        length = min(length, maxlength) if length is not None else maxlength
         # If we're in the start, then read the line ourselves.
         if self.offset < len(self.start):
             rv = ''
@@ -395,12 +374,10 @@ class SubFile(object):
         return self
 
     def next(self):  # @ReservedAssignment
-        rv = self.readline()
-
-        if not rv:
+        if rv := self.readline():
+            return rv
+        else:
             raise StopIteration()
-
-        return rv
 
     def flush(self):
         return
@@ -417,15 +394,11 @@ class SubFile(object):
         elif whence == 2:
             offset = self.length + offset
 
-        if offset > self.length:
-            offset = self.length
-
+        offset = min(offset, self.length)
         self.offset = offset
 
         offset = offset - len(self.start)
-        if offset < 0:
-            offset = 0
-
+        offset = max(offset, 0)
         self.f.seek(offset + self.base)
 
     def tell(self):
@@ -467,7 +440,7 @@ def load_core(name):
 
     # Look for the file in the apk.
     for apk in apks:
-        prefixed_name = "/".join("x-" + i for i in name.split("/"))
+        prefixed_name = "/".join(f"x-{i}" for i in name.split("/"))
 
         try:
             return apk.open(prefixed_name)
@@ -484,10 +457,10 @@ def load_core(name):
 
     # Look for it in archive files.
     for prefix, index in archives:
-        if not name in index:
+        if name not in index:
             continue
 
-        afn = transfn(prefix + ".rpa")
+        afn = transfn(f"{prefix}.rpa")
 
         data = [ ]
 
@@ -526,15 +499,11 @@ def get_prefixes(tl=True):
 
     rv = [ ]
 
-    if tl:
-        language = renpy.game.preferences.language  # @UndefinedVariable
-    else:
-        language = None
-
+    language = renpy.game.preferences.language if tl else None
     for prefix in renpy.config.search_prefixes:
 
         if language is not None:
-            rv.append(renpy.config.tl_directory + "/" + language + "/" + prefix)
+            rv.append(f"{renpy.config.tl_directory}/{language}/{prefix}")
 
         rv.append(prefix)
 
@@ -543,9 +512,9 @@ def get_prefixes(tl=True):
 
 def load(name, tl=True):
 
-    if renpy.display.predict.predicting:  # @UndefinedVariable
+    if renpy.display.predict.predicting:
         if threading.current_thread().name == "MainThread":
-            raise Exception("Refusing to open {} while predicting.".format(name))
+            raise Exception(f"Refusing to open {name} while predicting.")
 
     if renpy.config.reject_backslash and "\\" in name:
         raise Exception("Backslash in filename, use '/' instead: %r" % name)
@@ -557,7 +526,7 @@ def load(name, tl=True):
         if rv is not None:
             return rv
 
-    raise IOError("Couldn't find file '%s'." % name)
+    raise IOError(f"Couldn't find file '{name}'.")
 
 
 def loadable_core(name):
@@ -571,7 +540,7 @@ def loadable_core(name):
         return loadable_cache[name]
 
     for apk in apks:
-        prefixed_name = "/".join("x-" + i for i in name.split("/"))
+        prefixed_name = "/".join(f"x-{i}" for i in name.split("/"))
         if prefixed_name in apk.info:
             return True
 
@@ -598,11 +567,7 @@ def loadable(name):
     if (renpy.config.loadable_callback is not None) and renpy.config.loadable_callback(name):
         return True
 
-    for p in get_prefixes():
-        if loadable_core(p + name):
-            return True
-
-    return False
+    return any(loadable_core(p + name) for p in get_prefixes())
 
 
 def transfn(name):
@@ -629,10 +594,10 @@ def transfn(name):
         if os.path.exists(fn):
             return fn
 
-    raise Exception("Couldn't find file '%s'." % name)
+    raise Exception(f"Couldn't find file '{name}'.")
 
 
-hash_cache = dict()
+hash_cache = {}
 
 
 def get_hash(name):
@@ -651,12 +616,11 @@ def get_hash(name):
         f = load(name)
 
         while True:
-            data = f.read(1024 * 1024)
+            if data := f.read(1024 * 1024):
+                rv = zlib.adler32(data, rv)
 
-            if not data:
+            else:
                 break
-
-            rv = zlib.adler32(data, rv)
 
     except:
         pass
@@ -688,13 +652,10 @@ class RenpyImporter(object):
             # raise Exception("Could importer-translate %r + %r" % (prefix, fullname))
             return None
 
-        if loadable(fn + ".py"):
-            return fn + ".py"
+        if loadable(f"{fn}.py"):
+            return f"{fn}.py"
 
-        if loadable(fn + "/__init__.py"):
-            return fn + "/__init__.py"
-
-        return None
+        return f"{fn}/__init__.py" if loadable(f"{fn}/__init__.py") else None
 
     def find_module(self, fullname, path=None):
         if path is not None:
@@ -746,7 +707,7 @@ def add_python_directory(path):
     """
 
     if path and not path.endswith("/"):
-        path = path + "/"
+        path = f"{path}/"
 
     sys.meta_path.insert(0, RenpyImporter(path))
 

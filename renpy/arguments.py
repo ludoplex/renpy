@@ -79,7 +79,8 @@ class ArgumentParser(argparse.ArgumentParser):
 
             self.add_argument(
                 "command",
-                help="The command to execute. Available commands are: " + command_names + ". Defaults to 'run'.")
+                help=f"The command to execute. Available commands are: {command_names}. Defaults to 'run'.",
+            )
 
         else:
 
@@ -91,9 +92,10 @@ class ArgumentParser(argparse.ArgumentParser):
 
             self.add_argument(
                 "command",
-                help="The command to execute. Available commands are: " + command_names + ". Defaults to 'run'.",
+                help=f"The command to execute. Available commands are: {command_names}. Defaults to 'run'.",
                 nargs='?',
-                default="run")
+                default="run",
+            )
 
         self.add_argument(
             "--savedir", dest='savedir', default=None, metavar="DIRECTORY",

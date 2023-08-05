@@ -22,22 +22,20 @@ def copy_tutorial_file(src, dest):
     "# end-tutorial-only" comments are omitted from the copy.
     """
 
-    sf = open(src, "rb")
-    df = open(dest, "wb")
+    with open(src, "rb") as sf:
+        df = open(dest, "wb")
 
-    # True if we want to copy the line.
-    copy = True
+        # True if we want to copy the line.
+        copy = True
 
-    for l in sf:
-        if "# tutorial-only" in l:
-            copy = False
-        elif "# end-tutorial-only" in l:
-            copy = True
-        else:
-            if copy:
+        for l in sf:
+            if "# tutorial-only" in l:
+                copy = False
+            elif "# end-tutorial-only" in l:
+                copy = True
+            elif copy:
                 df.write(l)
 
-    sf.close()
     df.close()
 
 
@@ -68,19 +66,24 @@ def main():
 
     match_version = ".".join(str(i) for i in renpy.version_tuple[:2])  # @UndefinedVariable
 
-    s = subprocess.check_output([ "git", "describe", "--tags", "--dirty", "--match", "start-" + match_version ])
+    s = subprocess.check_output(
+        [
+            "git",
+            "describe",
+            "--tags",
+            "--dirty",
+            "--match",
+            f"start-{match_version}",
+        ]
+    )
     parts = s.strip().split("-")
 
-    if len(parts) <= 3:
-        vc_version = 0
-    else:
-        vc_version = int(parts[2])
-
+    vc_version = 0 if len(parts) <= 3 else int(parts[2])
     if parts[-1] == "dirty":
         vc_version += 1
 
     with open("renpy/vc_version.py", "w") as f:
-        f.write("vc_version = {}".format(vc_version))
+        f.write(f"vc_version = {vc_version}")
 
     try:
         reload(sys.modules['renpy.vc_version'])  # @UndefinedVariable
@@ -101,9 +104,9 @@ def main():
     destination = os.path.join("dl", args.version)
 
     if args.variant:
-        destination += "-" + args.variant
+        destination += f"-{args.variant}"
 
-    print("Version {} ({})".format(args.version, full_version))
+    print(f"Version {args.version} ({full_version})")
 
     # Perhaps autobuild.
     if "RENPY_BUILD_ALL" in os.environ:
@@ -177,19 +180,21 @@ def main():
 
     # Package pygame_sdl2.
     if not args.fast:
-        subprocess.check_call([
-            "pygame_sdl2/setup.py",
-            "-q",
-            "egg_info",
-            "--tag-build",
-            "-for-renpy-" + args.version,
-            "sdist",
-            "-d",
-            os.path.abspath(destination)
-            ])
+        subprocess.check_call(
+            [
+                "pygame_sdl2/setup.py",
+                "-q",
+                "egg_info",
+                "--tag-build",
+                f"-for-renpy-{args.version}",
+                "sdist",
+                "-d",
+                os.path.abspath(destination),
+            ]
+        )
 
     # Write 7z.exe.
-    sdk = "renpy-{}-sdk".format(args.version)
+    sdk = f"renpy-{args.version}-sdk"
 
     if not args.fast:
 
@@ -203,14 +208,14 @@ def main():
         if os.path.exists(sdk):
             shutil.rmtree(sdk)
 
-        subprocess.check_call([ "unzip", "-q", sdk + ".zip" ])
+        subprocess.check_call(["unzip", "-q", f"{sdk}.zip"])
 
-        if os.path.exists(sdk + ".7z"):
-            os.unlink(sdk + ".7z")
+        if os.path.exists(f"{sdk}.7z"):
+            os.unlink(f"{sdk}.7z")
 
         sys.stdout.write("Creating -sdk.7z")
 
-        p = subprocess.Popen([ "7z", "a", sdk +".7z", sdk], stdout=subprocess.PIPE)
+        p = subprocess.Popen(["7z", "a", f"{sdk}.7z", sdk], stdout=subprocess.PIPE)
         for i, _l in enumerate(p.stdout):
             if i % 10 != 0:
                 continue
@@ -221,21 +226,21 @@ def main():
         if p.wait() != 0:
             raise Exception("7z failed")
 
-        with open(sdk + ".7z", "rb") as f:
+        with open(f"{sdk}.7z", "rb") as f:
             data = f.read()
 
-        with open(sdk + ".7z.exe", "wb") as f:
+        with open(f"{sdk}.7z.exe", "wb") as f:
             f.write(sfx)
             f.write(data)
 
-        os.unlink(sdk + ".7z")
+        os.unlink(f"{sdk}.7z")
         shutil.rmtree(sdk)
 
     else:
         os.chdir(destination)
 
-        if os.path.exists(sdk + ".7z.exe"):
-            os.unlink(sdk + ".7z.exe")
+        if os.path.exists(f"{sdk}.7z.exe"):
+            os.unlink(f"{sdk}.7z.exe")
 
     print()
 

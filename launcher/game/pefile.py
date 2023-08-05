@@ -527,15 +527,9 @@ class UnicodeStringWrapperPostProcessor:
         """Return the escaped ASCII representation of the string."""
 
         def convert_char(char):
-            if char in string.printable:
-                return char
-            else:
-                return r'\x%02x' % ord(char)
+            return char if char in string.printable else r'\x%02x' % ord(char)
 
-        if self.string:
-            return ''.join([convert_char(c) for c in self.string])
-
-        return ''
+        return ''.join([convert_char(c) for c in self.string]) if self.string else ''
 
 
     def invalidate(self):
@@ -621,7 +615,7 @@ class Dump:
     """Convenience class for dumping the PE information."""
 
     def __init__(self):
-        self.text = list()
+        self.text = []
 
 
     def add_lines(self, txt, indent=0):
@@ -701,10 +695,7 @@ class Structure:
         self.__all_zeroes__ = False
         self.__unpacked_data_elms__ = None
         self.__file_offset__ = file_offset
-        if name:
-            self.name = name
-        else:
-            self.name = format[0]
+        self.name = name if name else format[0]
 
 
     def __get_format__(self):
@@ -736,7 +727,7 @@ class Structure:
                     if elm_name in self.__keys__:
                         search_list = [x[:len(elm_name)] for x in self.__keys__]
                         occ_count = search_list.count(elm_name)
-                        elm_name = elm_name+'_'+str(occ_count)
+                        elm_name = f'{elm_name}_{occ_count}'
                     names.append(elm_name)
                 # Some PE header structures have unions on them, so a certain
                 # value might have different names, so each key has a list of
@@ -800,7 +791,7 @@ class Structure:
         return '\n'.join( self.dump() )
 
     def __repr__(self):
-        return '<Structure: %s>' % (' '.join( [' '.join(s.split()) for s in self.dump()] ))
+        return f"<Structure: {' '.join([' '.join(s.split()) for s in self.dump()])}>"
 
 
     def dump(self, indentation=0):
@@ -846,11 +837,7 @@ class SectionStructure(Structure):
 
         offset = start - self.VirtualAddress
 
-        if length:
-            end = offset+length
-        else:
-            end = len(self.data)
-
+        end = offset+length if length else len(self.data)
         return self.data[offset:end]
 
 
@@ -1712,26 +1699,19 @@ class PE:
                                 offsets = st_entry.entries_offsets[key]
                                 lengths = st_entry.entries_lengths[key]
 
-                                if len( entry ) > lengths[1]:
+                                l = []
+                                for c in entry:
+                                    if ord(c) > 256:
+                                        l.extend( [ chr(ord(c) & 0xff), chr( (ord(c) & 0xff00) >>8) ]  )
+                                    else:
+                                        l.extend( [chr( ord(c) ), '\0'] )
 
-                                    l = list()
-                                    for idx, c in enumerate(entry):
-                                        if ord(c) > 256:
-                                            l.extend( [ chr(ord(c) & 0xff), chr( (ord(c) & 0xff00) >>8) ]  )
-                                        else:
-                                            l.extend( [chr( ord(c) ), '\0'] )
+                                if len( entry ) > lengths[1]:
 
                                     file_data[
                                         offsets[1] : offsets[1] + lengths[1]*2 ] = l
 
                                 else:
-
-                                    l = list()
-                                    for idx, c in enumerate(entry):
-                                        if ord(c) > 256:
-                                            l.extend( [ chr(ord(c) & 0xff), chr( (ord(c) & 0xff00) >>8) ]  )
-                                        else:
-                                            l.extend( [chr( ord(c) ), '\0'] )
 
                                     file_data[
                                         offsets[1] : offsets[1] + len(entry)*2 ] = l
@@ -1744,12 +1724,11 @@ class PE:
 
         new_file_data = ''.join( [ chr(ord(c)) for c in file_data] )
 
-        if filename:
-            f = file(filename, 'wb+')
-            f.write(new_file_data)
-            f.close()
-        else:
+        if not filename:
             return new_file_data
+        f = file(filename, 'wb+')
+        f.write(new_file_data)
+        f.close()
 
 
     def parse_sections(self, offset):
@@ -1919,8 +1898,7 @@ class PE:
             if directories is None or directory_index in directories:
 
                 if dir_entry.VirtualAddress:
-                    value = entry[1](dir_entry.VirtualAddress, dir_entry.Size)
-                    if value:
+                    if value := entry[1](dir_entry.VirtualAddress, dir_entry.Size):
                         setattr(self, entry[0][6:], value)
 
             if (directories is not None) and isinstance(directories, list) and (entry[0] in directories):
@@ -1958,7 +1936,7 @@ class PE:
             rva += bnd_descr.sizeof()
 
             forwarder_refs = []
-            for idx in xrange(bnd_descr.NumberOfModuleForwarderRefs):
+            for _ in xrange(bnd_descr.NumberOfModuleForwarderRefs):
                 # Both structures IMAGE_BOUND_IMPORT_DESCRIPTOR and
                 # IMAGE_BOUND_FORWARDER_REF have the same size.
                 bnd_frwd_ref = self.__unpack_data__(
@@ -2014,10 +1992,7 @@ class PE:
                 'data at RVA: 0x%x' % rva)
             tls_struct = None
 
-        if not tls_struct:
-            return None
-
-        return TlsData( struct = tls_struct )
+        return None if not tls_struct else TlsData( struct = tls_struct )
 
 
     def parse_directory_load_config(self, rva, size):
@@ -2791,7 +2766,7 @@ class PE:
 
         for idx in xrange(export_dir.NumberOfFunctions):
 
-            if not idx+export_dir.Base in ordinals:
+            if idx + export_dir.Base not in ordinals:
                 symbol_address = self.get_dword_from_data(
                     address_of_functions,
                     idx)
@@ -3131,10 +3106,7 @@ class PE:
 
         if not s:
             if rva<len(self.header):
-                if length:
-                    end = rva+length
-                else:
-                    end = None
+                end = rva+length if length else None
                 return self.header[rva:end]
 
             raise PEFormatError, 'data at RVA can\'t be fetched. Corrupt header?'
@@ -3145,10 +3117,10 @@ class PE:
     def get_rva_from_offset(self, offset):
         """Get the rva corresponding to this file offset. """
 
-        s = self.get_section_by_offset(offset)
-        if not s:
+        if s := self.get_section_by_offset(offset):
+            return s.get_rva_from_offset(offset)
+        else:
             raise PEFormatError("specified offset (0x%x) doesn't belong to any section." % offset)
-        return s.get_rva_from_offset(offset)
 
     def get_offset_from_rva(self, rva):
         """Get the file offset corresponding to this rva.
@@ -3157,24 +3129,23 @@ class PE:
         data lies and return the offset within the file.
         """
 
-        s = self.get_section_by_rva(rva)
-        if not s:
-
+        if s := self.get_section_by_rva(rva):
+            return s.get_offset_from_rva(rva)
+        else:
             raise PEFormatError, 'data at RVA can\'t be fetched. Corrupt header?'
-
-        return s.get_offset_from_rva(rva)
 
 
     def get_string_at_rva(self, rva):
         """Get an ASCII string located at the given address."""
 
-        s = self.get_section_by_rva(rva)
-        if not s:
-            if rva<len(self.header):
-                return self.get_string_from_data(rva, self.header)
-            return None
-
-        return self.get_string_from_data(rva-s.VirtualAddress, s.data)
+        if s := self.get_section_by_rva(rva):
+            return self.get_string_from_data(rva-s.VirtualAddress, s.data)
+        else:
+            return (
+                self.get_string_from_data(rva, self.header)
+                if rva < len(self.header)
+                else None
+            )
 
 
     def get_string_from_data(self, offset, data):
@@ -3229,9 +3200,7 @@ class PE:
     def get_section_by_offset(self, offset):
         """Get the section containing the given file offset."""
 
-        sections = [s for s in self.sections if s.contains_offset(offset)]
-
-        if sections:
+        if sections := [s for s in self.sections if s.contains_offset(offset)]:
             return sections[0]
 
         return None
@@ -3240,9 +3209,7 @@ class PE:
     def get_section_by_rva(self, rva):
         """Get the section containing the given address."""
 
-        sections = [s for s in self.sections if s.contains_rva(rva)]
-
-        if sections:
+        if sections := [s for s in self.sections if s.contains_rva(rva)]:
             return sections[0]
 
         return None

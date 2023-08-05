@@ -42,11 +42,7 @@ raspi = "RENPY_RASPBERRY_PI" in os.environ
 # Is coverage enabled?
 coverage = "RENPY_COVERAGE" in os.environ
 
-if coverage:
-    gen = "gen.coverage"
-else:
-    gen = "gen"
-
+gen = "gen.coverage" if coverage else "gen"
 # The cython command.
 cython_command = os.environ.get("RENPY_CYTHON", "cython")
 
@@ -59,11 +55,7 @@ cython_command = os.environ.get("RENPY_CYTHON", "cython")
 if not (android or ios):
     install = os.environ.get("RENPY_DEPS_INSTALL", "/usr")
 
-    if "::" in install:
-        install = install.split("::")
-    else:
-        install = install.split(os.pathsep)
-
+    install = install.split("::") if "::" in install else install.split(os.pathsep)
     install = [ os.path.abspath(i) for i in install ]
 
     if "VIRTUAL_ENV" in os.environ:
@@ -140,7 +132,7 @@ def library(name, optional=False):
 
             for suffix in ( ".so", ".a", ".dll.a", ".dylib" ):
 
-                fn = os.path.join(ldir, "lib" + name + suffix)
+                fn = os.path.join(ldir, f"lib{name}{suffix}")
 
                 if os.path.exists(fn):
 
@@ -375,7 +367,7 @@ def copyfile(source, dest, replace=None, replace_with=None):
         data = data.replace(replace, replace_with)
 
     df = file(dfn, "wb")
-    df.write("# This file was automatically generated from " + source + "\n")
+    df.write(f"# This file was automatically generated from {source}" + "\n")
     df.write("# Modifications will be automatically overwritten.\n\n")
     df.write(data)
     df.close()

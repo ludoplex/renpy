@@ -309,11 +309,7 @@ def get_delay(time, channel="music"):
         if not t or t < 0:
             return None
 
-        if t > time:
-            return 0
-
-        return time - t
-
+        return 0 if t > time else time - t
     except:
         if renpy.config.debug_sound:
             raise
@@ -337,11 +333,7 @@ def get_pos(channel="music"):
         c = renpy.audio.audio.get_channel(channel)
         t = c.get_pos()
 
-        if not t or t < 0:
-            return None
-
-        return t / 1000.0
-
+        return None if not t or t < 0 else t / 1000.0
     except:
         if renpy.config.debug_sound:
             raise
@@ -531,11 +523,7 @@ def get_all_mixers():
     This gets all mixers in use.
     """
 
-    rv = set()
-
-    for i in renpy.audio.audio.all_channels:
-        rv.add(i.mixer)
-
+    rv = {i.mixer for i in renpy.audio.audio.all_channels}
     return list(rv)
 
 
