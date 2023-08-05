@@ -66,11 +66,7 @@ class BinFile(object):
     def name(self):
         c = self.u16()
 
-        rv = u""
-        for _i in range(c):
-            rv += unichr(self.u16())
-
-        return rv
+        return u"".join(unichr(self.u16()) for _i in range(c))
 
     def seek(self, addr):
         self.addr = addr
@@ -102,12 +98,8 @@ def parse_data(bf, offset):
     code_page = bf.u32()
     bf.u32()
 
-    l = [ ]
-
     bf.seek(data_offset - resource_virtual)
-    for _i in range(data_len):
-        l.append(chr(bf.u8()))
-
+    l = [chr(bf.u8()) for _i in range(data_len)]
     return (code_page, b"".join(l))
 
 # This parses a resource directory.
@@ -123,11 +115,7 @@ def parse_directory(bf, offset):
     n_named = bf.u16()
     n_id = bf.u16()
 
-    entries = [ ]
-
-    for _i in range(n_named + n_id):
-        entries.append((bf.u32(), bf.u32()))
-
+    entries = [(bf.u32(), bf.u32()) for _i in range(n_named + n_id)]
     rv = { }
 
     for name, value in entries:
@@ -156,7 +144,7 @@ def show_resources(d, prefix):
 
     for k in d:
         print(prefix, k)
-        show_resources(d[k], prefix + "  ")
+        show_resources(d[k], f"{prefix}  ")
 
 ##############################################################################
 # These functions repack the resources into a new resource segment. Here,
@@ -248,9 +236,7 @@ def load_icon(fn):
     f.u16()
     count = f.u16()
 
-    rv = { }
-    rv[3] = { }
-
+    rv = {3: {}}
     group = struct.pack("HHH", 0, 1, count)
 
     for i in range(count):

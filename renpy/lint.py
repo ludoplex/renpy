@@ -72,7 +72,7 @@ added = { }
 
 
 def add(msg):
-    if not msg in added:
+    if msg not in added:
         added[msg] = True
         print(unicode(msg).encode('utf-8'))
 
@@ -90,10 +90,10 @@ def try_eval(where, expr, additional=None):
     if not m:
         return
 
-    if hasattr(renpy.store, m.group(1)):
+    if hasattr(renpy.store, m[1]):
         return
 
-    if m.group(1) in __builtins__:
+    if m[1] in __builtins__:
         return
 
     report("Could not evaluate '%s', in %s.", expr, where)
@@ -214,13 +214,13 @@ def image_exists(name, expression, tag, precise=True):
 
     # If we're not precise, then we have to start looking for images
     # that we can possibly match.
-    if precise:
-        if image_exists_precise(name):
-            return
-    else:
-        if image_exists_imprecise(name):
-            return
-
+    if (
+        precise
+        and image_exists_precise(name)
+        or not precise
+        and image_exists_imprecise(name)
+    ):
+        return
     report("The image named '%s' was not declared.", names)
 
 
@@ -269,16 +269,13 @@ def check_image(node):
 
     name = " ".join(node.imgname)
 
-    check_displayable('image %s' % name, renpy.display.image.images[node.imgname])
+    check_displayable(f'image {name}', renpy.display.image.images[node.imgname])
 
 
 def imspec(t):
     if len(t) == 3:
         return t[0], None, None, t[1], t[2], 0
-    if len(t) == 6:
-        return t[0], t[1], t[2], t[3], t[4], t[5], None
-    else:
-        return t
+    return (t[0], t[1], t[2], t[3], t[4], t[5], None) if len(t) == 6 else t
 
 
 # Lints ast.Show and ast.Scene nodes.
@@ -349,8 +346,7 @@ def check_user(node):
 
 
 def text_checks(s):
-    msg = renpy.text.extras.check_text_tags(s)
-    if msg:
+    if msg := renpy.text.extras.check_text_tags(s):
         report("%s (in %s)", msg, repr(s)[1:])
 
     if "%" in s and renpy.config.old_substitutions:
@@ -563,11 +559,11 @@ def check_label(node):
 
 def check_styles():
     for full_name, s in renpy.style.styles.iteritems():  # @UndefinedVariable
-        name = "style." + full_name[0]
+        name = f"style.{full_name[0]}"
         for i in full_name[1:]:
             name += "[{!r}]".format(i)
 
-        check_style("Style " + name, s)
+        check_style(f"Style {name}", s)
 
 
 def humanize(n):
@@ -628,10 +624,9 @@ def common(n):
 
     filename = n.filename.replace("\\", "/")
 
-    if filename.startswith("common/") or filename.startswith("renpy/common/"):
-        return True
-    else:
-        return False
+    return bool(
+        filename.startswith("common/") or filename.startswith("renpy/common/")
+    )
 
 
 def lint():
@@ -652,7 +647,11 @@ def lint():
     renpy.game.lint = True
 
     print(codecs.BOM_UTF8)
-    print(unicode(renpy.version + " lint report, generated at: " + time.ctime()).encode("utf-8"))
+    print(
+        unicode(
+            f"{renpy.version} lint report, generated at: {time.ctime()}"
+        ).encode("utf-8")
+    )
 
     # This supports check_hide.
     global image_prefixes
@@ -765,11 +764,7 @@ def lint():
         if count.blocks <= 0:
             return
 
-        if language is None:
-            s = "The game"
-        else:
-            s = "The {0} translation".format(language)
-
+        s = "The game" if language is None else "The {0} translation".format(language)
         s += """ contains {0} dialogue blocks, containing {1} words
 and {2} characters, for an average of {3:.1f} words and {4:.0f}
 characters per block. """.format(
@@ -786,8 +781,7 @@ characters per block. """.format(
     print("Statistics:")
     print()
 
-    languages = list(counts)
-    languages.sort()
+    languages = sorted(counts)
     for i in languages:
         report_language(i)
 

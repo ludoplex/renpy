@@ -50,7 +50,7 @@ version_name = "On the road again."
 version_only = ".".join(str(i) for i in version_tuple)
 
 # A verbose string giving the version.
-version = "Ren'Py " + version_only
+version = f"Ren'Py {version_only}"
 
 # Other versions.
 script_version = 5003000
@@ -260,7 +260,7 @@ class Backup():
             if isinstance(v, type_blacklist):
                 continue
 
-            if name + "." + k in name_blacklist:
+            if f"{name}.{k}" in name_blacklist:
                 continue
 
             idv = id(v)
@@ -273,7 +273,7 @@ class Backup():
             try:
                 cPickle.dumps(v, cPickle.HIGHEST_PROTOCOL)
             except:
-                print("Cannot pickle", name + "." + k, "=", repr(v))
+                print("Cannot pickle", f"{name}.{k}", "=", repr(v))
                 print("Reduce Ex is:", repr(v.__reduce_ex__(cPickle.HIGHEST_PROTOCOL)))
 
     def restore(self):
@@ -621,7 +621,7 @@ def setup_modulefinder(modulefinder):
         displaypath = os.path.join(libexec, "renpy", i)
 
         if os.path.exists(displaypath):
-            modulefinder.AddPackagePath('renpy.' + i, displaypath)
+            modulefinder.AddPackagePath(f'renpy.{i}', displaypath)
 
 
 def import_cython():
@@ -653,5 +653,3 @@ def import_cython():
     import renpy.angle.gltexture
 
 
-if False:
-    import renpy.defaultstore as store

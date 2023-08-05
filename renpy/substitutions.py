@@ -68,37 +68,29 @@ class Formatter(string.Formatter):
             if state == LITERAL:
                 if c == '[':
                     state = OPEN_BRACKET
-                    continue
                 else:
                     literal += c
-                    continue
-
+                continue
             elif state == OPEN_BRACKET:
                 if c == '[':
                     literal += c
                     state = LITERAL
-                    continue
-
                 else:
                     value = c
                     state = VALUE
                     bracket_depth = 0
-                    continue
+                continue
 
             elif state == VALUE:
 
                 if c == '[':
                     bracket_depth += 1
                     value += c
-                    continue
-
                 elif c == ']':
 
                     if bracket_depth:
                         bracket_depth -= 1
                         value += c
-                        continue
-
                     else:
                         yield (literal, value, format, conversion)
                         state = LITERAL
@@ -106,20 +98,14 @@ class Formatter(string.Formatter):
                         value = ''
                         format = ''  # @ReservedAssignment
                         conversion = None
-                        continue
-
                 elif c == ':':
                     state = FORMAT
-                    continue
-
                 elif c == '!':
                     state = CONVERSION
                     conversion = ''
-                    continue
-
                 else:
                     value += c
-                    continue
+                continue
 
             elif state == FORMAT:
 
@@ -130,16 +116,12 @@ class Formatter(string.Formatter):
                     value = ''
                     format = ''  # @ReservedAssignment
                     conversion = None
-                    continue
-
                 elif c == '!':
                     state = CONVERSION
                     conversion = ''
-                    continue
-
                 else:
                     format += c
-                    continue
+                continue
 
             elif state == CONVERSION:
                 if c == ']':
@@ -149,11 +131,9 @@ class Formatter(string.Formatter):
                     value = ''
                     format = ''  # @ReservedAssignment
                     conversion = None
-                    continue
-
                 else:
                     conversion += c
-                    continue
+                continue
 
         if state != LITERAL:
             raise Exception("String {0!r} ends with an open format operation.".format(s))
@@ -200,7 +180,7 @@ class MultipleDict(object):
             if key in d:
                 return d[key]
 
-        raise NameError("Name '{}' is not defined.".format(key))
+        raise NameError(f"Name '{key}' is not defined.")
 
 
 def substitute(s, scope=None, force=False, translate=True):

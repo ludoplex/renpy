@@ -64,7 +64,7 @@ class ParseError(Exception):
                         open_string = None
                     elif open_string:
                         pass
-                    elif c == '`' or c == '\'' or c == '"':
+                    elif c in ['`', '\'', '"']:
                         open_string = c
 
                     i += 1
@@ -144,7 +144,7 @@ def munge_filename(fn):
 
     rv = re.sub(r'[^a-zA-Z0-9_]', munge_char, rv)
 
-    return "_m1_" + rv + "__"
+    return f"_m1_{rv}__"
 
 
 def elide_filename(fn):
@@ -172,10 +172,7 @@ def unelide_filename(fn):
         return fn1
 
     fn2 = os.path.join(renpy.config.renpy_base, fn)
-    if os.path.exists(fn2):
-        return fn2
-
-    return fn
+    return fn2 if os.path.exists(fn2) else fn
 
 
 # The filename that the start and end positions are relative to.
@@ -198,10 +195,7 @@ def list_logical_lines(filename, filedata=None, linenumber=1, add_lines=False):
         if (len(brackets) & 1) == 0:
             return m.group(0)
 
-        if "__" in m.group(2):
-            return m.group(0)
-
-        return brackets + prefix + m.group(2)
+        return m.group(0) if "__" in m.group(2) else brackets + prefix + m.group(2)
 
     global original_filename
 
@@ -210,10 +204,8 @@ def list_logical_lines(filename, filedata=None, linenumber=1, add_lines=False):
     if filedata:
         data = filedata
     else:
-        f = open(filename, "rb")
-        data = f.read().decode("utf-8")
-        f.close()
-
+        with open(filename, "rb") as f:
+            data = f.read().decode("utf-8")
     filename = elide_filename(filename)
     prefix = munge_filename(filename)
 
@@ -488,7 +480,7 @@ def group_logical_lines(lines):
 # Note: We need to be careful with what's in here, because these
 # are banned in simple_expressions, where we might want to use
 # some of them.
-KEYWORDS = set([
+KEYWORDS = {
     '$',
     'as',
     'at',
@@ -512,7 +504,7 @@ KEYWORDS = set([
     'while',
     'zorder',
     'transform',
-    ])
+}
 
 OPERATORS = [
     '<',
@@ -629,7 +621,7 @@ class Lexer(object):
 
         self.pos = m.end()
 
-        return m.group(0)
+        return m[0]
 
     def skip_whitespace(self):
         """
@@ -699,7 +691,9 @@ class Lexer(object):
         if self.subblock:
             ll = self.subblock_lexer()
             ll.advance()
-            ll.error("Line is indented, but the preceding %s statement does not expect a block. Please check this line's indentation." % stmt)
+            ll.error(
+                f"Line is indented, but the preceding {stmt} statement does not expect a block. Please check this line's indentation."
+            )
 
     def expect_block(self, stmt):
         """
@@ -708,7 +702,7 @@ class Lexer(object):
         """
 
         if not self.subblock:
-            self.error('%s expects a non-empty block.' % stmt)
+            self.error(f'{stmt} expects a non-empty block.')
 
     def subblock_lexer(self, init=False):
         """
@@ -931,22 +925,18 @@ class Lexer(object):
             if not local_name:
                 self.pos = old_pos
                 return None
-        else:
-            if self.match('\.'):
-                # full global.local name
-                if declare and global_name != self.global_label:
-                    self.pos = old_pos
-                    return None
+        elif self.match('\.'):
+            # full global.local name
+            if declare and global_name != self.global_label:
+                self.pos = old_pos
+                return None
 
-                local_name = self.name()
-                if not local_name:
-                    self.pos = old_pos
-                    return None
+            local_name = self.name()
+            if not local_name:
+                self.pos = old_pos
+                return None
 
-        if not local_name:
-            return global_name
-
-        return global_name+'.'+local_name
+        return global_name if not local_name else f'{global_name}.{local_name}'
 
     def label_name_declare(self):
         """
@@ -1039,15 +1029,12 @@ class Lexer(object):
             if not n:
                 self.error('expecting name.')
 
-            rv += "." + n
+            rv += f".{n}"
 
         return rv
 
     def expr(self, s, expr):
-        if not expr:
-            return s
-
-        return renpy.ast.PyExpr(s, self.filename, self.number)
+        return s if not expr else renpy.ast.PyExpr(s, self.filename, self.number)
 
     def delimited_python(self, delim, expr=True):
         """
@@ -1075,7 +1062,7 @@ class Lexer(object):
 
             self.pos += 1
 
-        self.error("reached end of line when expecting '%s'." % delim)
+        self.error(f"reached end of line when expecting '{delim}'.")
 
     def python_expression(self, expr=True):
         """
@@ -1088,9 +1075,7 @@ class Lexer(object):
         if not pe:
             self.error("expected python_expression")
 
-        rv = self.expr(pe.strip(), expr)  # E1101
-
-        return rv
+        return self.expr(pe.strip(), expr)
 
     def parenthesised_python(self):
         """
@@ -1140,10 +1125,12 @@ class Lexer(object):
 
             # We start with either a name, a python_string, or parenthesized
             # python
-            if not (self.python_string() or
-                    self.name() or
-                    self.float() or
-                    self.parenthesised_python()):
+            if (
+                not self.python_string()
+                and not self.name()
+                and not self.float()
+                and not self.parenthesised_python()
+            ):
 
                 break
 
@@ -1175,12 +1162,10 @@ class Lexer(object):
 
             break
 
-        text = self.text[start:self.pos].strip()
-
-        if not text:
+        if text := self.text[start : self.pos].strip():
+            return renpy.ast.PyExpr(self.text[start:self.pos].strip(), self.filename, self.number)
+        else:
             return None
-
-        return renpy.ast.PyExpr(self.text[start:self.pos].strip(), self.filename, self.number)
 
     def comma_expression(self):
         """
@@ -1238,7 +1223,7 @@ class Lexer(object):
             rv = thing()
 
         if rv is None:
-            self.error("expected '%s' not found." % name)
+            self.error(f"expected '{name}' not found.")
 
         return rv
 
@@ -1289,7 +1274,7 @@ class Lexer(object):
                 rv.append(linetext)
                 o.line += linetext.count('\n')
 
-                process(subblock, indent + '    ')
+                process(subblock, f'{indent}    ')
 
         process(self.subblock, '')
         return ''.join(rv)
@@ -1349,12 +1334,11 @@ def parse_simple_expression_list(l):
         if not l.match(','):
             break
 
-        e = l.simple_expression()
+        if e := l.simple_expression():
+            rv.append(e)
 
-        if not e:
+        else:
             break
-
-        rv.append(e)
 
     return rv
 
@@ -1596,7 +1580,7 @@ def parse_parameters(l):
             extrakw = l.require(l.name)
 
             if extrakw in names:
-                l.error('parameter %s appears twice.' % extrakw)
+                l.error(f'parameter {extrakw} appears twice.')
 
             names.add(extrakw)
 
@@ -1612,7 +1596,7 @@ def parse_parameters(l):
             if extrapos is not None:
 
                 if extrapos in names:
-                    l.error('parameter %s appears twice.' % extrapos)
+                    l.error(f'parameter {extrapos} appears twice.')
 
                 names.add(extrapos)
 
@@ -1621,7 +1605,7 @@ def parse_parameters(l):
             name = l.require(l.name)
 
             if name in names:
-                l.error('parameter %s appears twice.' % name)
+                l.error(f'parameter {name} appears twice.')
 
             names.add(name)
 
@@ -1757,8 +1741,6 @@ def statement(keywords):
 @statement("if")
 def if_statement(l, loc):
 
-    entries = [ ]
-
     condition = l.require(l.python_expression)
     l.require(':')
     l.expect_eol()
@@ -1766,8 +1748,7 @@ def if_statement(l, loc):
 
     block = parse_block(l.subblock_lexer())
 
-    entries.append((condition, block))
-
+    entries = [(condition, block)]
     l.advance()
 
     while l.keyword('elif'):
@@ -1895,12 +1876,11 @@ def call_statement(l, loc):
         name = l.require(l.label_name_declare)
         l.set_global_label(name)
         rv.append(ast.Label(loc, name, [], None))
-    else:
-        if renpy.scriptedit.lines and (loc in renpy.scriptedit.lines):
-            if expression:
-                renpy.add_from.report_missing("expression", original_filename, renpy.scriptedit.lines[loc].end)
-            else:
-                renpy.add_from.report_missing(target, original_filename, renpy.scriptedit.lines[loc].end)
+    elif renpy.scriptedit.lines and (loc in renpy.scriptedit.lines):
+        if expression:
+            renpy.add_from.report_missing("expression", original_filename, renpy.scriptedit.lines[loc].end)
+        else:
+            renpy.add_from.report_missing(target, original_filename, renpy.scriptedit.lines[loc].end)
 
     rv.append(ast.Pass(loc))
 
@@ -1912,11 +1892,7 @@ def call_statement(l, loc):
 
 @statement("scene")
 def scene_statement(l, loc):
-    if l.keyword('onlayer'):
-        layer = l.require(l.name)
-    else:
-        layer = "master"
-
+    layer = l.require(l.name) if l.keyword('onlayer') else "master"
     # Empty.
     if l.eol():
         l.advance()
@@ -1959,11 +1935,7 @@ def show_layer_statement(l, loc):
 
     layer = l.require(l.name)
 
-    if l.keyword("at"):
-        at_list = parse_simple_expression_list(l)
-    else:
-        at_list = [ ]
-
+    at_list = parse_simple_expression_list(l) if l.keyword("at") else [ ]
     if l.match(':'):
         atl = renpy.atl.parse_atl(l.subblock_lexer())
     else:
@@ -1973,9 +1945,7 @@ def show_layer_statement(l, loc):
     l.expect_eol()
     l.advance()
 
-    rv = ast.ShowLayer(loc, layer, at_list, atl)
-
-    return rv
+    return ast.ShowLayer(loc, layer, at_list, atl)
 
 
 @statement("hide")
@@ -2033,16 +2003,12 @@ def image_statement(l, loc):
 def define_statement(l, loc):
 
     priority = l.integer()
-    if priority:
-        priority = int(priority)
-    else:
-        priority = 0
-
+    priority = int(priority) if priority else 0
     store = 'store'
     name = l.require(l.word)
 
     while l.match(r'\.'):
-        store = store + "." + name
+        store = f"{store}.{name}"
         name = l.require(l.word)
 
     l.require('=')
@@ -2067,16 +2033,12 @@ def define_statement(l, loc):
 def default_statement(l, loc):
 
     priority = l.integer()
-    if priority:
-        priority = int(priority)
-    else:
-        priority = 0
-
+    priority = int(priority) if priority else 0
     store = 'store'
     name = l.require(l.word)
 
     while l.match(r'\.'):
-        store = store + "." + name
+        store = f"{store}.{name}"
         name = l.require(l.word)
 
     l.require('=')
@@ -2101,11 +2063,7 @@ def default_statement(l, loc):
 def transform_statement(l, loc):
 
     priority = l.integer()
-    if priority:
-        priority = int(priority)
-    else:
-        priority = 0
-
+    priority = int(priority) if priority else 0
     name = l.require(l.name)
     parameters = parse_parameters(l)
 
@@ -2142,19 +2100,9 @@ def one_line_python(l, loc):
 
 @statement("python")
 def python_statement(l, loc):
-    hide = False
-    early = False
-    store = 'store'
-
-    if l.keyword('early'):
-        early = True
-
-    if l.keyword('hide'):
-        hide = True
-
-    if l.keyword('in'):
-        store = "store." + l.require(l.dotted_name)
-
+    early = bool(l.keyword('early'))
+    hide = bool(l.keyword('hide'))
+    store = f"store.{l.require(l.dotted_name)}" if l.keyword('in') else 'store'
     l.require(':')
     l.expect_block('python block')
 
@@ -2175,11 +2123,7 @@ def label_statement(l, loc, init=False):
     l.set_global_label(name)
     parameters = parse_parameters(l)
 
-    if l.keyword('hide'):
-        hide = True
-    else:
-        hide = False
-
+    hide = bool(l.keyword('hide'))
     l.require(':')
     l.expect_eol()
 
@@ -2213,13 +2157,7 @@ def init_label_statement(l, loc):
 @statement("init")
 def init_statement(l, loc):
 
-    p = l.integer()
-
-    if p:
-        priority = int(p)
-    else:
-        priority = 0
-
+    priority = int(p) if (p := l.integer()) else 0
     if l.match(':'):
 
         l.expect_eol()
@@ -2355,7 +2293,6 @@ def translate_strings(init_loc, language, l):
             return eval(bc, renpy.store.__dict__)
         except:
             raise
-            ll.error('could not parse string')
 
     while ll.advance():
 
@@ -2397,10 +2334,7 @@ def translate_strings(init_loc, language, l):
 
     l.advance()
 
-    if l.init:
-        return block
-
-    return ast.Init(init_loc, block, l.init_offset)
+    return block if l.init else ast.Init(init_loc, block, l.init_offset)
 
 
 @statement("translate")
@@ -2483,7 +2417,7 @@ def style_statement(l, loc):
             propname = l.require(l.name)
 
             if propname not in renpy.style.prefixed_all_properties:  # @UndefinedVariable
-                l.error("style property %s is not known." % propname)
+                l.error(f"style property {propname} is not known.")
 
             rv.delattr.append(propname)
             return True
@@ -2500,10 +2434,10 @@ def style_statement(l, loc):
 
         if propname is not None:
             if (propname != "properties") and (propname not in renpy.style.prefixed_all_properties):  # @UndefinedVariable
-                l.error("style property %s is not known." % propname)
+                l.error(f"style property {propname} is not known.")
 
             if propname in rv.properties:
-                l.error("style property %s appears twice." % propname)
+                l.error(f"style property {propname} appears twice.")
 
             rv.properties[propname] = l.require(l.simple_expression)
 
@@ -2569,21 +2503,18 @@ def finish_say(l, loc, who, what, attributes=None):
 
             arguments = args
 
-    if isinstance(what, list):
-
-        rv = [ ]
-
-        for i in what:
-
-            if i == "{clear}":
-                rv.append(ast.UserStatement(loc, "nvl clear", [ ]))
-            else:
-                rv.append(ast.Say(loc, who, i, with_, attributes=attributes, interact=interact, arguments=arguments))
-
-        return rv
-
-    else:
+    if not isinstance(what, list):
         return ast.Say(loc, who, what, with_, attributes=attributes, interact=interact, arguments=arguments)
+    rv = [ ]
+
+    for i in what:
+
+        if i == "{clear}":
+            rv.append(ast.UserStatement(loc, "nvl clear", [ ]))
+        else:
+            rv.append(ast.Say(loc, who, i, with_, attributes=attributes, interact=interact, arguments=arguments))
+
+    return rv
 
 
 @statement("")
@@ -2622,11 +2553,7 @@ def say_statement(l, loc):
 
         attributes.append(prefix + component)
 
-    if attributes:
-        attributes = tuple(attributes)
-    else:
-        attributes = None
-
+    attributes = tuple(attributes) if attributes else None
     what = l.triple_string() or l.string()
 
     if (who is not None) and (what is not None):

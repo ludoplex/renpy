@@ -409,7 +409,7 @@ def combine_style(style_prefix, style_suffix):
     if style_prefix is None:
         new_style = style_suffix
     else:
-        new_style = style_prefix + "_" + style_suffix
+        new_style = f"{style_prefix}_{style_suffix}"
 
     return renpy.style.get_style(new_style)  # @UndefinedVariable
 
@@ -514,10 +514,11 @@ class Wrapper(renpy.object.Object):
         try:
             w = self.function(*args, **keyword)
         except TypeError as e:
-            etype, e, tb = sys.exc_info(); etype
+            etype, e, tb = sys.exc_info()
+            etype
 
             if tb.tb_next is None:
-                e.args = (e.args[0].replace("__call__", "ui." + self.name), )
+                e.args = (e.args[0].replace("__call__", f"ui.{self.name}"), )
 
             del tb  # Important! Prevents memory leaks via our frame.
             raise
@@ -558,11 +559,7 @@ class Wrapper(renpy.object.Object):
             if isinstance(atw, renpy.display.motion.Transform):
                 screen.transforms[widget_id] = atw
 
-                if old_transfers:
-                    oldt = screen.old_transforms.get(widget_id, None)
-                else:
-                    oldt = None
-
+                oldt = screen.old_transforms.get(widget_id, None) if old_transfers else None
                 atw.take_state(oldt)
                 atw.take_execution_state(oldt)
 
@@ -922,7 +919,7 @@ def _imagebutton(idle_image=None,
             if auto:
                 raise Exception("Imagebutton does not have a %s image. (auto=%r)." % (name, auto))
             else:
-                raise Exception("Imagebutton does not have a %s image." % (name, ))
+                raise Exception(f"Imagebutton does not have a {name} image.")
 
         return None
 
@@ -1005,20 +1002,11 @@ def _bar(*args, **properties):
         width, height, range, value = args  # @ReservedAssignment
     if len(args) == 2:
         range, value = args  # @ReservedAssignment
-        width = None
-        height = None
     else:
         range = 1  # @ReservedAssignment
         value = 0
-        width = None
-        height = None
-
-    if "width" in properties:
-        width = properties.pop("width")
-
-    if "height" in properties:
-        height  = properties.pop("height")
-
+    width = properties.pop("width") if "width" in properties else None
+    height = properties.pop("height") if "height" in properties else None
     if "range" in properties:
         range = properties.pop("range")  # @ReservedAssignment
 
@@ -1089,9 +1077,11 @@ def viewport_common(vpfunc, _spacing_to_side, scrollbars=None, **properties):
         from renpy.sl2.slproperties import position_property_names
 
         for k, v in core_properties.items():
-            if k in position_property_names:
-                side_properties[k] = v
-            elif _spacing_to_side and (k == "spacing"):
+            if (
+                k in position_property_names
+                or _spacing_to_side
+                and k == "spacing"
+            ):
                 side_properties[k] = v
             else:
                 viewport_properties[k] = v
@@ -1110,8 +1100,14 @@ def viewport_common(vpfunc, _spacing_to_side, scrollbars=None, **properties):
         vscrollbar_properties.setdefault("style", "vscrollbar")
 
     alt = viewport_properties.get("alt", "viewport")
-    scrollbar_properties.setdefault("alt", renpy.minstore.__(alt) + " " + renpy.minstore.__("horizontal scroll"))
-    vscrollbar_properties.setdefault("alt", renpy.minstore.__(alt) + " " + renpy.minstore.__("vertical scroll"))
+    scrollbar_properties.setdefault(
+        "alt",
+        f"{renpy.minstore.__(alt)} " + renpy.minstore.__("horizontal scroll"),
+    )
+    vscrollbar_properties.setdefault(
+        "alt",
+        f"{renpy.minstore.__(alt)} " + renpy.minstore.__("vertical scroll"),
+    )
 
     if scrollbars == "vertical":
 
@@ -1124,12 +1120,6 @@ def viewport_common(vpfunc, _spacing_to_side, scrollbars=None, **properties):
         addable = stack.pop()
 
         vscrollbar(adjustment=rv.yadjustment, **vscrollbar_properties)
-        close()
-
-        stack.append(addable)
-
-        return rv
-
     elif scrollbars == "horizontal":
 
         if renpy.config.scrollbar_child_size:
@@ -1141,12 +1131,6 @@ def viewport_common(vpfunc, _spacing_to_side, scrollbars=None, **properties):
         addable = stack.pop()
 
         scrollbar(adjustment=rv.xadjustment, **scrollbar_properties)
-        close()
-
-        stack.append(addable)
-
-        return rv
-
     else:
 
         if renpy.config.scrollbar_child_size:
@@ -1159,11 +1143,12 @@ def viewport_common(vpfunc, _spacing_to_side, scrollbars=None, **properties):
 
         vscrollbar(adjustment=rv.yadjustment, **vscrollbar_properties)
         scrollbar(adjustment=rv.xadjustment, **scrollbar_properties)
-        close()
 
-        stack.append(addable)
+    close()
 
-        return rv
+    stack.append(addable)
+
+    return rv
 
 
 def viewport(**properties):
@@ -1224,7 +1209,7 @@ def _imagemap(ground=None, hover=None, insensitive=None, idle=None, selected_hov
         if other is not None:
             return other
 
-        raise Exception("Could not find a %s image for imagemap." % name[0])
+        raise Exception(f"Could not find a {name[0]} image for imagemap.")
 
     ground = pick(ground, ( "ground", "idle" ), idle)
     idle = pick(idle, ( "idle", ), ground)
@@ -1299,11 +1284,7 @@ def _hotspot(spot, style='hotspot', **properties):
     properties.setdefault("yminimum", h)
     properties.setdefault("ymaximum", h)
 
-    if imagemap.alpha:
-        focus_mask = True
-    else:
-        focus_mask = None
-
+    focus_mask = True if imagemap.alpha else None
     properties.setdefault("focus_mask", focus_mask)
 
     return renpy.display.behavior.Button(

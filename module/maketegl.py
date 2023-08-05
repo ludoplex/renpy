@@ -2542,7 +2542,7 @@ class gltype(object):
         self.type = s
 
     def __getitem__(self, n):
-        return gltype(self.type + " *")
+        return gltype(f"{self.type} *")
 
     def asreturn(self):
         return self
@@ -2576,10 +2576,7 @@ GLcharARB = gltype("GLchar")
 
 
 def exception_return(t):
-    if "*" in str(t):
-        return "NULL"
-    else:
-        return "0"
+    return "NULL" if "*" in str(t) else "0"
 
 
 class GLFunction(object):
@@ -2604,12 +2601,10 @@ class GLFunction(object):
         if t == GLvoid:
             t = "int"
 
-        print('cdef %s gl%s(%s) except? %s' % (
-            t,
-            self.name,
-            ", ".join(str(i) for i in self.args),
-            exception_return(self.type),
-            ), file=f)
+        print(
+            f'cdef {t} gl{self.name}({", ".join(str(i) for i in self.args)}) except? {exception_return(self.type)}',
+            file=f,
+        )
 
     def define_wrapper(self, f):
         t = self.type
@@ -2617,15 +2612,13 @@ class GLFunction(object):
         if t == GLvoid:
             t = "int"
 
-        print('cdef %s gl%s(%s) except? %s:' % (
-            t,
-            self.name,
-            ", ".join(("%s a%d" % (t, i)) for i, t in enumerate(self.args)),
-            exception_return(self.type),
-            ), file=f)
+        print(
+            f'cdef {t} gl{self.name}({", ".join("%s a%d" % (t, i) for i, t in enumerate(self.args))}) except? {exception_return(self.type)}:',
+            file=f,
+        )
 
         print("    if check_errors & 4:", file=f)
-        print("        renpy.display.log.write('gl%s')" % self.name, file=f)
+        print(f"        renpy.display.log.write('gl{self.name}')", file=f)
 
         print("    cdef GLenum error", file=f)
 
@@ -2637,17 +2630,16 @@ class GLFunction(object):
             else:
                 prefix = ""
 
-            print(prefix + "    realGl%s(%s)" % (
-                self.name,
-                ", ".join(("a%d" % i) for i in range(len(self.args)))
-                ), file=f)
+            print(
+                f'{prefix}    realGl{self.name}({", ".join("a%d" % i for i in range(len(self.args)))})',
+                file=f,
+            )
         else:
 
-            print("    cdef %s rv = realGl%s(%s)" % (
-                self.type,
-                self.name,
-                ", ".join(("a%d" % i) for i in range(len(self.args)))
-                ), file=f)
+            print(
+                f'    cdef {self.type} rv = realGl{self.name}({", ".join("a%d" % i for i in range(len(self.args)))})',
+                file=f,
+            )
 
         print("    if check_errors:", file=f)
         print("        error = realGlGetError()", file=f)
@@ -2673,11 +2665,7 @@ def declare(*args):
 
     args = list(args)
 
-    if isinstance(args[0], gltype):
-        type = args.pop(0)  # @ReservedAssignment
-    else:
-        type = GLvoid  # @ReservedAssignment
-
+    type = args.pop(0) if isinstance(args[0], gltype) else GLvoid
     name = args.pop(0)
 
     declarations.append(GLFunction(type, name, args))
@@ -2687,7 +2675,7 @@ constants = [ ]
 
 
 def constant(name):
-    constants.append("GL_" + name)
+    constants.append(f"GL_{name}")
 
 
 PXD_HEADER = """\
@@ -2737,13 +2725,8 @@ def find_gl_names(dirname, gl1):
 
         GL1_FILES = [ "glenviron_fixed.pyx", "glenviron_limited.pyx" ]
 
-        if gl1:
-            if i not in GL1_FILES:
-                continue
-        else:
-            if i in GL1_FILES:
-                continue
-
+        if gl1 and i not in GL1_FILES or not gl1 and i in GL1_FILES:
+            continue
         fn = os.path.join(dirname, i)
 
         with open(fn, "r") as f:
@@ -2752,19 +2735,12 @@ def find_gl_names(dirname, gl1):
         for m in re.finditer(r'gl([A-Z]\w+)', data):
             names.add(m.group(1))
 
-    rv = list(names)
-    rv.sort()
-
-    return rv
+    return sorted(names)
 
 
 def generate(dirname, gl1):
 
-    if gl1:
-        prefix = "gl1"
-    else:
-        prefix = "gl"
-
+    prefix = "gl1" if gl1 else "gl"
     names = find_gl_names(dirname, gl1)
 
     global constants
@@ -2779,15 +2755,15 @@ def generate(dirname, gl1):
     constants.sort()
     constants.append("RENPY_THIRD_TEXTURE")
 
-    decl_by_name = dict((i.name, i) for i in declarations)
+    decl_by_name = {i.name: i for i in declarations}
 
-    with open(os.path.join(dirname, prefix + ".pxd"), "w") as f:
+    with open(os.path.join(dirname, f"{prefix}.pxd"), "w") as f:
         print(PXD_HEADER, file=f)
 
         print(file=f)
         print("    enum:", file=f)
         for i in constants:
-            print("        %s" % i, file=f)
+            print(f"        {i}", file=f)
 
         print(file=f)
         for i in declarations:
@@ -2797,7 +2773,7 @@ def generate(dirname, gl1):
         for i in names:
             decl_by_name[i].declare_wrapper(f)
 
-    with open(os.path.join(dirname, prefix + ".pyx"), "w") as f:
+    with open(os.path.join(dirname, f"{prefix}.pyx"), "w") as f:
         print(PYX_HEADER, file=f)
 
         for i in names:

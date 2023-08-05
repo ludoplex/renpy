@@ -106,8 +106,8 @@ class Script(object):
         # we're loading.
         renpy.game.script = self
 
-        if os.path.exists(renpy.config.renpy_base + "/lock.txt"):
-            self.key = file(renpy.config.renpy_base + "/lock.txt", "rb").read()
+        if os.path.exists(f"{renpy.config.renpy_base}/lock.txt"):
+            self.key = file(f"{renpy.config.renpy_base}/lock.txt", "rb").read()
         else:
             self.key = None
 
@@ -195,9 +195,8 @@ class Script(object):
 
             base, ext = os.path.splitext(short_fn)
             target_fn = os.path.join(
-                backupdir,
-                base + "." + checksum[:8].encode("hex") + ext,
-                )
+                backupdir, f"{base}." + checksum[:8].encode("hex") + ext
+            )
 
             if os.path.exists(target_fn):
                 continue
@@ -278,10 +277,10 @@ class Script(object):
         files = [ (fn, dir) for fn, dir in self.module_files if fn == name ]  # @ReservedAssignment
 
         if not files:
-            raise Exception("Module %s could not be loaded." % name)
+            raise Exception(f"Module {name} could not be loaded.")
 
         if len(files) > 2:
-            raise Exception("Module %s ambiguous, multiple variants exist." % name)
+            raise Exception(f"Module {name} ambiguous, multiple variants exist.")
 
         fn, dir = files[0]  # @ReservedAssignment
         initcode = [ ]
@@ -424,8 +423,8 @@ class Script(object):
 
                     else:
                         self.duplicate_labels.append(
-                            u'The label {} is defined twice, at\n  File "{}", line {} and\n  File "{}", line {}.'.format(
-                                bad_name, old_node.filename, old_node.linenumber, bad_node.filename, bad_node.linenumber))
+                            f'The label {bad_name} is defined twice, at\n  File "{old_node.filename}", line {old_node.linenumber} and\n  File "{bad_node.filename}", line {bad_node.linenumber}.'
+                        )
 
                 # Add twice, so we can find duplicates in the same file.
                 self.namemap[name] = node
@@ -441,8 +440,7 @@ class Script(object):
 
             # Add any init nodes to self.initcode.
             if node.get_init:
-                init = node.get_init()
-                if init:
+                if init := node.get_init():
                     initcode.append(init)
 
             if node.early_execute:
@@ -545,17 +543,14 @@ class Script(object):
         if fn.endswith(".rpy") or fn.endswith(".rpym"):
 
             if not dir:
-                raise Exception("Cannot load rpy/rpym file %s from inside an archive." % fn)
+                raise Exception(f"Cannot load rpy/rpym file {fn} from inside an archive.")
 
-            fullfn = dir + "/" + fn
-            rpycfn = fullfn + "c"
+            fullfn = f"{dir}/{fn}"
+            rpycfn = f"{fullfn}c"
 
             stmts = renpy.parser.parse(fullfn)
 
-            data = { }
-            data['version'] = script_version
-            data['key'] = self.key or 'unlocked'
-
+            data = {'version': script_version, 'key': self.key or 'unlocked'}
             if stmts is None:
                 return data, [ ]
 
@@ -619,9 +614,7 @@ class Script(object):
 
                 for slot in [ 2, 1 ]:
                     try:
-                        bindata = self.read_rpyc_data(f, slot)
-
-                        if bindata:
+                        if bindata := self.read_rpyc_data(f, slot):
                             data, stmts = loads(bindata)
                             break
 
@@ -668,7 +661,7 @@ class Script(object):
             data, stmts = self.load_file(dir, fn + compiled)
 
             if data is None:
-                raise Exception("Could not load from archive %s." % (lastfn,))
+                raise Exception(f"Could not load from archive {lastfn}.")
 
             f = renpy.loader.load(fn + compiled)
             f.seek(-hashlib.md5().digest_size, 2)
@@ -679,8 +672,8 @@ class Script(object):
 
             # Otherwise, we're loading from disk. So we need to decide if
             # we want to load the rpy or the rpyc file.
-            rpyfn = dir + "/" + fn + source
-            rpycfn = dir + "/" + fn + compiled
+            rpyfn = f"{dir}/{fn}{source}"
+            rpycfn = f"{dir}/{fn}{compiled}"
 
             renpy.loader.add_auto(rpyfn)
 
@@ -717,14 +710,12 @@ class Script(object):
                         data, stmts = self.load_file(dir, fn + compiled)
 
                         if data is None:
-                            print("Could not load " + rpycfn)
+                            print(f"Could not load {rpycfn}")
 
                 except:
                     if "RENPY_RPYC_EXCEPTIONS" in os.environ:
                         print("While loading", rpycfn)
                         raise
-
-                    pass
 
                 if data is None:
                     data, stmts = self.load_file(dir, fn + source)
@@ -746,13 +737,15 @@ class Script(object):
             self.backup_list.append((rpyfn, digest))
 
         if data is None:
-            raise Exception("Could not load file %s." % lastfn)
+            raise Exception(f"Could not load file {lastfn}.")
 
         # Check the key.
         if self.key is None:
             self.key = data['key']
         elif self.key != data['key']:
-            raise Exception( fn + " does not share a key with at least one .rpyc file. To fix, delete all .rpyc files, or rerun Ren'Py with the --lock option.")
+            raise Exception(
+                f"{fn} does not share a key with at least one .rpyc file. To fix, delete all .rpyc files, or rerun Ren'Py with the --lock option."
+            )
 
         self.finish_load(stmts, initcode, filename=lastfn)
 
@@ -870,7 +863,7 @@ class Script(object):
             rv = self.namemap.get(label, None)
 
         if rv is None:
-            raise ScriptError("could not find label '%s'." % str(original))
+            raise ScriptError(f"could not find label '{str(original)}'.")
 
         return self.namemap[label]
 

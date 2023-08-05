@@ -37,7 +37,7 @@ import warnings
 
 
 def path_to_common(renpy_base):
-    return renpy_base + "/renpy/common"
+    return f"{renpy_base}/renpy/common"
 
 # Given a directory holding a Ren'Py game, this is expected to return
 # the path to a directory that will hold save files.
@@ -104,15 +104,15 @@ def path_to_saves(gamedir, save_directory=None):
 
     # No save directory given.
     if not save_directory:
-        return gamedir + "/saves"
+        return f"{gamedir}/saves"
 
     # Search the path above Ren'Py for a directory named "Ren'Py Data".
     # If it exists, then use that for our save directory.
     path = renpy.config.renpy_base
 
     while True:
-        if os.path.isdir(path + "/Ren'Py Data"):
-            return path + "/Ren'Py Data/" + save_directory
+        if os.path.isdir(f"{path}/Ren'Py Data"):
+            return f"{path}/Ren'Py Data/{save_directory}"
 
         newpath = os.path.dirname(path)
         if path == newpath:
@@ -121,18 +121,17 @@ def path_to_saves(gamedir, save_directory=None):
 
     # Otherwise, put the saves in a platform-specific location.
     if renpy.macintosh:
-        rv = "~/Library/RenPy/" + save_directory
+        rv = f"~/Library/RenPy/{save_directory}"
         return os.path.expanduser(rv)
 
     elif renpy.windows:
         if 'APPDATA' in os.environ:
             return os.environ['APPDATA'] + "/RenPy/" + save_directory
-        else:
-            rv = "~/RenPy/" + renpy.config.save_directory
-            return os.path.expanduser(rv)
+        rv = f"~/RenPy/{renpy.config.save_directory}"
+        return os.path.expanduser(rv)
 
     else:
-        rv = "~/.renpy/" + save_directory
+        rv = f"~/.renpy/{save_directory}"
         return os.path.expanduser(rv)
 
 
@@ -152,9 +151,6 @@ try:
     import ast; ast
 except:
     raise
-    print("Ren'Py requires at least python 2.6.")
-    sys.exit(0)
-
 android = ("ANDROID_PRIVATE" in os.environ)
 
 # Android requires us to add code to the main module, and to command some
@@ -172,14 +168,14 @@ def main():
     renpy_base = path_to_renpy_base()
 
     # Add paths.
-    if os.path.exists(renpy_base + "/module"):
-        sys.path.append(renpy_base + "/module")
+    if os.path.exists(f"{renpy_base}/module"):
+        sys.path.append(f"{renpy_base}/module")
 
     sys.path.append(renpy_base)
 
     # This is looked for by the mac launcher.
-    if os.path.exists(renpy_base + "/renpy.zip"):
-        sys.path.append(renpy_base + "/renpy.zip")
+    if os.path.exists(f"{renpy_base}/renpy.zip"):
+        sys.path.append(f"{renpy_base}/renpy.zip")
 
     # Ignore warnings that happen.
     warnings.simplefilter("ignore", DeprecationWarning)

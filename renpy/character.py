@@ -77,7 +77,7 @@ class DialogueTextTags(object):
                     self.text += quoted
                     continue
 
-                if tag == "p" or tag == "w":
+                if tag in ["p", "w"]:
                     if not less_pauses:
                         self.pause_start.append(len(self.text))
                         self.pause_end.append(len(self.text))
@@ -274,8 +274,8 @@ def show_display_say(who, what, who_args={}, what_args={}, window_args={},
 
         if multiple:
 
-            if renpy.display.screen.has_screen("multiple_" + screen):
-                screen = "multiple_" + screen
+            if renpy.display.screen.has_screen(f"multiple_{screen}"):
+                screen = f"multiple_{screen}"
                 kwargs["multiple"] = multiple
 
             tag = "block{}_multiple{}_{}".format(multiple[0], multiple[1], tag)
@@ -355,11 +355,7 @@ class SlowDone(object):
 
         if renpy.display.screen.has_screen("ctc"):
 
-            if self.ctc:
-                args = [ self.ctc ]
-            else:
-                args = [ ]
-
+            args = [ self.ctc ] if self.ctc else [ ]
             renpy.display.screen.show_screen("ctc", *args, _transient=True)
             renpy.exports.restart_interaction()
 
@@ -407,11 +403,7 @@ def display_say(
     else:
         step, total = multiple
 
-        if step == total:
-            final = interact
-        else:
-            final = False
-
+        final = interact if step == total else False
     if not final:
         advance = False
 
@@ -502,12 +494,8 @@ def display_say(
             if last_pause:
                 what_ctc = ctc
             else:
-                if delay is not None:
-                    what_ctc = ctc_timedpause or ctc_pause
-                else:
-                    what_ctc = ctc_pause
-
-            if not (interact or ctc_force):
+                what_ctc = ctc_timedpause or ctc_pause if delay is not None else ctc_pause
+            if not interact and not ctc_force:
                 what_ctc = None
 
             what_ctc = renpy.easy.displayable_or_none(what_ctc)
@@ -586,15 +574,14 @@ def display_say(
     # Do the checkpoint and with None.
     if final:
 
-        if not dtt.no_wait:
-            if checkpoint:
-                if exception is None:
-                    renpy.exports.checkpoint(True)
-                else:
-                    renpy.exports.checkpoint(exception)
-
-        else:
+        if dtt.no_wait:
             renpy.game.after_rollback = after_rollback
+
+        elif checkpoint:
+            if exception is None:
+                renpy.exports.checkpoint(True)
+            else:
+                renpy.exports.checkpoint(exception)
 
         if with_none is None:
             with_none = renpy.config.implicit_with_none
@@ -674,17 +661,11 @@ class ADVCharacter(object):
         # This grabs a value out of properties, and then grabs it out of
         # kind if it's not set.
         def v(n):
-            if n in properties:
-                return properties.pop(n)
-            else:
-                return getattr(kind, n)
+            return properties.pop(n) if n in properties else getattr(kind, n)
 
         # Similar, but it grabs the value out of kind.display_args instead.
         def d(n):
-            if n in properties:
-                return properties.pop(n)
-            else:
-                return kind.display_args[n]
+            return properties.pop(n) if n in properties else kind.display_args[n]
 
         self.name = v('name')
         self.who_prefix = v('who_prefix')
@@ -752,7 +733,7 @@ class ADVCharacter(object):
             self.what_args["slow_abortable"] = properties.pop("slow_abortable")
 
         prefixes = [ "show", "cb", "what", "window", "who"] + renpy.config.character_id_prefixes
-        split_args = [ i + "_" for i in prefixes ] + [ "" ]
+        split_args = [f"{i}_" for i in prefixes] + [ "" ]
 
         split = renpy.easy.split_properties(properties, *split_args)
 
@@ -867,7 +848,12 @@ class ADVCharacter(object):
             if images.showing(layer, new_image, exact=True):
                 return
 
-            show_image = (self.image_tag,) + attrs + tuple(wanted) + tuple( "-" + i for i in remove)
+            show_image = (
+                (self.image_tag,)
+                + attrs
+                + tuple(wanted)
+                + tuple(f"-{i}" for i in remove)
+            )
 
             if predict:
                 images.predict_show(show_image)
@@ -910,7 +896,12 @@ class ADVCharacter(object):
         return "<Character: {!r}>".format(self.name)
 
     def empty_window(self):
-        if renpy.config.fast_empty_window and (self.name is None) and not (self.what_prefix or self.what_suffix):
+        if (
+            renpy.config.fast_empty_window
+            and self.name is None
+            and not self.what_prefix
+            and not self.what_suffix
+        ):
             self.do_show(None, "")
             return
 

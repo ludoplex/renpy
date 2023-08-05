@@ -173,10 +173,7 @@ def call(method, parsed, *args, **kwargs):
     name, parsed = parsed
 
     method = registry[name].get(method)
-    if method is None:
-        return None
-
-    return method(parsed, *args, **kwargs)
+    return None if method is None else method(parsed, *args, **kwargs)
 
 
 def get_name(parsed):

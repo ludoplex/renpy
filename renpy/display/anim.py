@@ -249,11 +249,7 @@ class SMAnimation(renpy.display.core.Displayable):
 
     def render(self, width, height, st, at):
 
-        if self.anim_timebase:
-            t = at
-        else:
-            t = st
-
+        t = at if self.anim_timebase else st
         if self.edge_start is None or t < self.edge_start:
             self.edge_start = t
             self.edge_cache = None
@@ -300,11 +296,7 @@ class SMAnimation(renpy.display.core.Displayable):
         if child is None:
             child = new_widget
 
-        args = [ ]
-
-        for state in self.states.itervalues():
-            args.append(state.motion_copy(child))
-
+        args = [state.motion_copy(child) for state in self.states.itervalues()]
         for edges in self.edges.itervalues():
             args.extend(edges)
 
@@ -441,11 +433,7 @@ class TransitionAnimation(renpy.display.core.Displayable):
 
     def render(self, width, height, st, at):
 
-        if self.anim_timebase:
-            orig_t = at
-        else:
-            orig_t = st
-
+        orig_t = at if self.anim_timebase else st
         t = orig_t % sum(self.delays)
 
         for image, prev, delay, trans in zip(self.images, self.prev_images, self.delays, self.transitions):
@@ -521,11 +509,7 @@ class Blink(renpy.display.core.Displayable):
 
     def render(self, height, width, st, at):
 
-        if self.anim_timebase:
-            t = at
-        else:
-            t = st
-
+        t = at if self.anim_timebase else st
         time = (self.offset + t) % self.cycle
         alpha = self.high
 
@@ -615,9 +599,7 @@ def Filmstrip(image, framesize, gridsize, delay, frames=None, loop=True, **prope
             x = c * width
             y = r * height
 
-            args.append(renpy.display.im.Crop(image, x, y, width, height))
-            args.append(delay)
-
+            args.extend((renpy.display.im.Crop(image, x, y, width, height), delay))
             i += 1
             if i == frames:
                 break

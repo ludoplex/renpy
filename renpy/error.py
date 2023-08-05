@@ -146,7 +146,7 @@ def open_error_file(fn, mode):
 
     import tempfile
 
-    new_fn = os.path.join(tempfile.gettempdir(), "renpy-" + fn)
+    new_fn = os.path.join(tempfile.gettempdir(), f"renpy-{fn}")
     return file(new_fn, mode), new_fn
 
 
@@ -184,10 +184,7 @@ def report_exception(e, editor=True):
                 except:
                     m = "<Could not encode exception.>"
 
-        if isinstance(m, unicode):
-            return m.encode("utf-8", "replace")
-        else:
-            return m
+        return m.encode("utf-8", "replace") if isinstance(m, unicode) else m
 
     # Return values - which can be displayed to the user.
     simple = cStringIO.StringIO()
@@ -198,12 +195,12 @@ def report_exception(e, editor=True):
 
     print(renpy.game.exception_info, file=simple)
     write_utf8_traceback_list(simple, simple_tl)
-    print(type.__name__ + ":", end=' ', file=simple)
+    print(f"{type.__name__}:", end=' ', file=simple)
     print(safe_utf8(e), file=simple)
 
     print("Full traceback:", file=full)
     write_utf8_traceback_list(full, full_tl)
-    print(type.__name__ + ":", end=' ', file=full)
+    print(f"{type.__name__}:", end=' ', file=full)
     print(safe_utf8(e), file=full)
 
     # Write to stdout/stderr.
@@ -216,7 +213,7 @@ def report_exception(e, editor=True):
     try:
         print(platform.platform(), file=full)
         print(renpy.version, file=full)
-        print(safe_utf8(renpy.config.name + " " + renpy.config.version), file=full)
+        print(safe_utf8(f"{renpy.config.name} {renpy.config.version}"), file=full)
         print(time.ctime(), file=full)
     except:
         pass

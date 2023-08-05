@@ -504,9 +504,7 @@ class ProgressBar:
     def _update(self, value):
         maxval = self.maxval
         progbar = user32.GetDlgItem(self.hwnd, 1003)
-        if maxval == 0:     # an indeterminate bar
-            # make the bar grow and wrap around in case Marquee bars aren't supported
-            pass
+        if maxval == 0: # an indeterminate bar
             pos = user32.SendMessageA(progbar, PBM_GETPOS, 0, 0)
             user32.SendMessageA(progbar, PBM_SETRANGE, 0, MAKELPARAM(0, 10))
             user32.SendMessageA(progbar, PBM_SETPOS, (pos+1) % 10, 0)
@@ -611,7 +609,7 @@ def AskFileForOpen(
         lpstrFilter = ''
         for typeSpec in typeList:
             try:
-                lpstrFilter += '*.'+typeSpec+'\0*.'+typeSpec+'\0'
+                lpstrFilter += f'*.{typeSpec}' + '\0*.' + typeSpec + '\0'
                 if defaultext and not ofn.lpstrDefExt:
                     ofn.lpstrDefExt = typeSpec
             except TypeError:
@@ -834,11 +832,8 @@ ARGV_CMDLINE_DATA=14
 
 def _setmenu(control, items):
     for item in items:
-        if type(item) == type(()):
-            label = item[0]
-        else:
-            label = item
-        if label[-1] == '=' or label[-1] == ':':
+        label = item[0] if type(item) == type(()) else item
+        if label[-1] in ['=', ':']:
             label = label[:-1]
         user32.SendMessageA(control, CB_ADDSTRING, 0, label)
     user32.SendMessageA(control, CB_SETCURSEL, 0, 0)
@@ -848,26 +843,18 @@ def _selectoption(d, optionlist, idx):
         user32.MessageBeep(-1)
         return
     option = optionlist[idx]
-    if type(option) == type(()):
-        if len(option) == 4:
-            help = option[2]
-        elif len(option) > 1:
-            help = option[-1]
-        else:
-            help = ''
+    if type(option) == type(()) and len(option) == 4:
+        help = option[2]
+    elif type(option) == type(()) and len(option) > 1:
+        help = option[-1]
     else:
         help = ''
     h = user32.GetDlgItem(d, ARGV_OPTION_EXPLAIN)
     if help and len(help) > 250:
-        help = help[:250] + '...'
+        help = f'{help[:250]}...'
     user32.SetWindowTextA(h, help)
-    hasvalue = 0
-    if type(option) == type(()):
-        label = option[0]
-    else:
-        label = option
-    if label[-1] == '=' or label[-1] == ':':
-        hasvalue = 1
+    label = option[0] if type(option) == type(()) else option
+    hasvalue = 1 if label[-1] in ['=', ':'] else 0
     h = user32.GetDlgItem(d, ARGV_OPTION_VALUE)
     user32.SetWindowTextA(h, '')
     if hasvalue:
@@ -925,16 +912,13 @@ def GetArgv(optionlist=None, commandlist=None, addoldfile=1, addnewfile=1, addfo
                     option = optionlist[idx]
                     if type(option) == type(()):
                         option = option[0]
-                    if option[-1] == '=' or option[-1] == ':':
+                    if option[-1] in ['=', ':']:
                         option = option[:-1]
                         h = user32.GetDlgItem(hwnd, ARGV_OPTION_VALUE)
                         value = GetText(h)
                     else:
                         value = ''
-                    if len(option) == 1:
-                        stringtoadd = '-' + option
-                    else:
-                        stringtoadd = '--' + option
+                    stringtoadd = f'-{option}' if len(option) == 1 else f'--{option}'
                     stringstoadd[:] = [stringtoadd]
                     if value:
                         stringstoadd.append(value)
@@ -975,10 +959,10 @@ def GetArgv(optionlist=None, commandlist=None, addoldfile=1, addnewfile=1, addfo
                 h = user32.GetDlgItem(hwnd, ARGV_CMDLINE_DATA)
                 oldstr = GetText(h)
                 if oldstr and oldstr[-1] != ' ':
-                    oldstr = oldstr + ' '
+                    oldstr = f'{oldstr} '
                 oldstr = oldstr + stringtoadd
                 if oldstr[-1] != ' ':
-                    oldstr = oldstr + ' '
+                    oldstr = f'{oldstr} '
                 user32.SetWindowTextA(h, oldstr)
                 user32.SendMessageA(user32.GetDlgItem(hwnd, ARGV_CMDLINE_DATA), EM_SETSEL, 0, -1)
 
@@ -997,14 +981,14 @@ def GetArgv(optionlist=None, commandlist=None, addoldfile=1, addnewfile=1, addfo
                 while item[-1] != '"':
                     if not tmplist:
                         raise RuntimeError, "Unterminated quoted argument"
-                    item = item + ' ' + tmplist[0]
+                    item = f'{item} {tmplist[0]}'
                     del tmplist[0]
                 item = item[1:-1]
             if item[0] == "'":
                 while item[-1] != "'":
                     if not tmplist:
                         raise RuntimeError, "Unterminated quoted argument"
-                    item = item + ' ' + tmplist[0]
+                    item = f'{item} {tmplist[0]}'
                     del tmplist[0]
                 item = item[1:-1]
             newlist.append(item)
@@ -1028,33 +1012,34 @@ def test():
                 ('flags=', 'Valued option'), ('f:', 'Short valued option'))
     commandlist = (('start', 'Start something'), ('stop', 'Stop something'))
     argv = GetArgv(optionlist=optionlist, commandlist=commandlist, addoldfile=0)
-    Message("Command line: %s"%' '.join(argv))
+    Message(f"Command line: {' '.join(argv)}")
     for i in range(len(argv)):
         print(('arg[%d] = %r' % (i, argv[i])))
     ok = AskYesNoCancel("Do you want to proceed?")
     ok = AskYesNoCancel("Do you want to identify?", yes="Identify", no="No")
     if ok > 0:
         s = AskString("Enter your first name", "Joe")
-        s2 = AskPassword("Okay %s, tell us your nickname"%s, s, cancel="None")
-        if not s2:
-            Message("%s has no secret nickname"%s)
-        else:
+        if s2 := AskPassword(
+            f"Okay {s}, tell us your nickname", s, cancel="None"
+        ):
             Message("Hello everybody!!\nThe secret nickname of %s is %s!!!"%(s, s2))
+        else:
+            Message(f"{s} has no secret nickname")
     else:
         s = 'Anonymous'
-    rv = AskFileForOpen(message="Gimme a file, %s"%s, wanted=Carbon.File.FSSpec)
-    Message("rv: %s"%rv)
-    rv = AskFileForSave(wanted=Carbon.File.FSRef, savedFileName="%s.txt"%s)
-    Message("rv: %s"%rv) # was: Message("rv.as_pathname: %s"%rv.as_pathname())
+    rv = AskFileForOpen(message=f"Gimme a file, {s}", wanted=Carbon.File.FSSpec)
+    Message(f"rv: {rv}")
+    rv = AskFileForSave(wanted=Carbon.File.FSRef, savedFileName=f"{s}.txt")
+    Message(f"rv: {rv}")
     rv = AskFolder()
-    Message("Folder name: %s"%rv)
+    Message(f"Folder name: {rv}")
     text = ( "Working Hard...", "Hardly Working..." ,
             "So far, so good!", "Keep on truckin'" )
     bar = ProgressBar("Progress, progress...", 0, label="Ramping up...")
     try:
         if hasattr(MacOS, 'SchedParams'):
             appsw = MacOS.SchedParams(1, 0)
-        for i in xrange(20):
+        for _ in xrange(20):
             bar.inc()
             time.sleep(0.05)
         bar.set(0,100)

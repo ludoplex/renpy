@@ -150,7 +150,7 @@ class Parser(object):
         all_statements.append(self)
 
     def __repr__(self):
-        return "<%s: %s>" % (self.__class__.__name__, self.name)
+        return f"<{self.__class__.__name__}: {self.name}>"
 
     def add(self, i):
         """
@@ -184,17 +184,18 @@ class Parser(object):
         word = l.word() or l.match(r'\$')
 
         if word and word in self.children:
-            if layout_mode:
-                c = self.children[word].parse_layout(l, name)
-            else:
-                c = self.children[word].parse(l, name)
-
-            return c
+            return (
+                self.children[word].parse_layout(l, name)
+                if layout_mode
+                else self.children[word].parse(l, name)
+            )
         else:
             return None
 
     def parse_layout(self, l, name):
-        l.error("The %s statement cannot be used as a container for the has statement." % self.name)
+        l.error(
+            f"The {self.name} statement cannot be used as a container for the has statement."
+        )
 
     def parse_children(self, stmt, l, name):
         l.expect_block(stmt)
@@ -340,7 +341,7 @@ class FunctionStatementParser(Parser):
         lineno = l.number
 
         if layout_mode and self.nchildren == 0:
-            l.error("The %s statement cannot be used as a layout." % self.name)
+            l.error(f"The {self.name} statement cannot be used as a layout.")
 
         func = self.parse_eval(self.function, lineno)
 
@@ -431,7 +432,7 @@ class FunctionStatementParser(Parser):
 
                     if l.keyword(r'has'):
                         if self.nchildren != 1:
-                            l.error("The %s statement does not take a layout." % self.name)
+                            l.error(f"The {self.name} statement does not take a layout.")
 
                         if child_index != 0:
                             l.error("The has statement may not be given after a child has been supplied.")
@@ -694,7 +695,7 @@ add(position_properties)
 # Omit sizer, as we can always just put an xmaximum and ymaximum on an item.
 
 for name in [ "window", "frame" ]:
-    FunctionStatementParser(name, "ui." + name, 1)
+    FunctionStatementParser(name, f"ui.{name}", 1)
     add(ui_properties)
     add(position_properties)
     add(window_properties)
@@ -792,7 +793,7 @@ add(text_position_properties)
 add(text_text_properties)
 
 for name in [ "bar", "vbar" ]:
-    FunctionStatementParser(name, "ui." + name, 0)
+    FunctionStatementParser(name, f"ui.{name}", 0)
     Keyword("adjustment")
     Keyword("range")
     Keyword("value")
@@ -957,20 +958,16 @@ class UseParser(Parser):
         if args:
 
             for k, v in args.arguments:
-                if k is None:
-                    code += ", (%s)" % v
-                else:
-                    code += ", %s=(%s)" % (k, v)
-
-        code += ", _name=%s, _scope=_scope" % name
+                code += f", ({v})" if k is None else f", {k}=({v})"
+        code += f", _name={name}, _scope=_scope"
 
         if args:
 
             if args.extrapos:
-                code += ", *(%s)" % args.extrapos
+                code += f", *({args.extrapos})"
 
             if args.extrakw:
-                code += ", **(%s)" % args.extrakw
+                code += f", **({args.extrakw})"
 
         code += ")"
 
@@ -1059,11 +1056,7 @@ class ForParser(Parser):
 
             lineno = l.number
 
-            if l.match(r"\("):
-                p = self.parse_tuple_pattern(l)
-            else:
-                p = l.name().encode("utf-8")
-
+            p = self.parse_tuple_pattern(l) if l.match(r"\(") else l.name().encode("utf-8")
             if not p:
                 break
 
@@ -1077,10 +1070,7 @@ class ForParser(Parser):
         if not pattern:
             l.error("Expected tuple pattern.")
 
-        if not is_tuple:
-            return pattern[0]
-        else:
-            return ast.Tuple(elts=pattern, ctx=ast.Store())
+        return pattern[0] if not is_tuple else ast.Tuple(elts=pattern, ctx=ast.Store())
 
     def parse(self, l, name):
 
@@ -1099,11 +1089,11 @@ class ForParser(Parser):
 
             with new_variable() as child_name:
 
-                children = self.parse_exec("%s = (%s, %s)" % (child_name, name, counter_name))
+                children = self.parse_exec(f"{child_name} = ({name}, {counter_name})")
                 children.extend(self.parse_children('for', l, child_name))
-                children.extend(self.parse_exec("%s += 1" % counter_name))
+                children.extend(self.parse_exec(f"{counter_name} += 1"))
 
-            rv = self.parse_exec("%s = 0" % counter_name)
+            rv = self.parse_exec(f"{counter_name} = 0")
 
             rv.append(ast.For(
                 target=pattern,
@@ -1371,5 +1361,4 @@ def parse_screen(l):
 
     filename = l.filename
 
-    screen = screen_parser.parse(l)
-    return screen
+    return screen_parser.parse(l)

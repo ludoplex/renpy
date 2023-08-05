@@ -13,14 +13,12 @@ def _find_c_source(base_path):
 
     base_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "module", "gen.coverage", os.path.basename(base_path))
 
-    if os.path.exists(base_path + '.c'):
-        c_file = base_path + '.c'
-    elif os.path.exists(base_path + '.cpp'):
-        c_file = base_path + '.cpp'
+    if os.path.exists(f'{base_path}.c'):
+        return f'{base_path}.c'
+    elif os.path.exists(f'{base_path}.cpp'):
+        return f'{base_path}.cpp'
     else:
-        c_file = None
-
-    return c_file
+        return None
 
 Cython.Coverage._find_c_source = _find_c_source
 
@@ -37,10 +35,7 @@ class FixedCythonReporter(coverage.FileReporter):
 
         super(FixedCythonReporter, self).__init__(fn)
 
-        if old._code is None:
-            self._lines = set()
-        else:
-            self._lines = set(old._code)
+        self._lines = set() if old._code is None else set(old._code)
 
     def lines(self):
         return self._lines
@@ -75,7 +70,7 @@ class CythonCoverage(Cython.Coverage.Plugin):
         else:
             return None, None
 
-        c_base = os.path.basename(filename)[:-4] + ".c"
+        c_base = f"{os.path.basename(filename)[:-4]}.c"
 
         modules = [
             "",
@@ -203,14 +198,14 @@ class RenpyReporter(coverage.FileReporter):
 
         # stmts = renpy.parser.parse(filename)
 
-        with open(filename + "c", "rb") as f:
+        with open(f"{filename}c", "rb") as f:
             data = renpy.game.script.read_rpyc_data(f, 1)
 
         try:
             stmts = cPickle.loads(data)[1]
         except:
             stmts = [ ]
-            print(filename + "c", "failed")
+            print(f"{filename}c", "failed")
 
         all_stmts = [ ]
         for i in stmts:

@@ -47,7 +47,7 @@ def renpy_pure(fn):
     if not isinstance(name, basestring):
         name = fn.__name__
 
-    pure("renpy." + name)
+    pure(f"renpy.{name}")
 
     return fn
 
@@ -195,10 +195,7 @@ def roll_forward_info():
     the last time this statement executed. Outside of rollback, returns None.
     """
 
-    if not renpy.game.context().rollback:
-        return None
-
-    return renpy.game.log.forward_info()
+    return renpy.game.log.forward_info() if renpy.game.context().rollback else None
 
 
 def roll_forward_core(value=None):
@@ -575,11 +572,7 @@ def predict_show(name, layer=None, what=None, tag=None, at_list=[ ]):
             return
 
     for i in at_list:
-        if isinstance(i, renpy.display.motion.Transform):
-            img = i(child=img)
-        else:
-            img = i(img)
-
+        img = i(child=img) if isinstance(i, renpy.display.motion.Transform) else i(img)
         img._unique()
 
     renpy.game.context().images.predict_show(layer, name, True)
@@ -641,18 +634,14 @@ def show(name, at_list=[ ], layer=None, what=None, zorder=None, tag=None, behind
 
     layer = default_layer(layer, key)
 
-    if renpy.config.sticky_positions:
-        if not at_list and key in sls.at_list[layer]:
+    if not at_list and key in sls.at_list[layer]:
+        if renpy.config.sticky_positions:
             at_list = sls.at_list[layer][key]
 
     if not at_list:
         tt = renpy.config.tag_transform.get(key, None)
         if tt is not None:
-            if not isinstance(tt, list):
-                at_list = [ tt ]
-            else:
-                at_list = list(tt)
-
+            at_list = [ tt ] if not isinstance(tt, list) else list(tt)
     if what is None:
         what = name
     elif isinstance(what, basestring):
@@ -689,11 +678,7 @@ def show(name, at_list=[ ], layer=None, what=None, zorder=None, tag=None, behind
                 return
 
     for i in at_list:
-        if isinstance(i, renpy.display.motion.Transform):
-            img = i(child=img)
-        else:
-            img = i(img)
-
+        img = i(child=img) if isinstance(i, renpy.display.motion.Transform) else i(img)
         # Mark the newly created images unique.
         img._unique()
 
@@ -772,7 +757,7 @@ def scene(layer='master'):
         renpy.config.missing_scene(layer)
 
 
-def input(prompt, default='', allow=None, exclude='{}', length=None, with_none=None, pixel_width=None):  # @ReservedAssignment
+def input(prompt, default='', allow=None, exclude='{}', length=None, with_none=None, pixel_width=None):    # @ReservedAssignment
     """
     :doc: input
 
@@ -815,9 +800,16 @@ def input(prompt, default='', allow=None, exclude='{}', length=None, with_none=N
     fixed = in_fixed_rollback()
 
     if has_screen("input"):
-        widget_properties = { }
-        widget_properties["input"] = dict(default=default, length=length, allow=allow, exclude=exclude, editable=not fixed, pixel_width=pixel_width)
-
+        widget_properties = {
+            "input": dict(
+                default=default,
+                length=length,
+                allow=allow,
+                exclude=exclude,
+                editable=not fixed,
+                pixel_width=pixel_width,
+            )
+        }
         show_screen("input", _transient=True, _widget_properties=widget_properties, prompt=prompt)
 
     else:
@@ -1025,11 +1017,7 @@ def display_menu(items,
 
         item_actions = [ ]
 
-        if widget_properties is None:
-            props = { }
-        else:
-            props = widget_properties
-
+        props = { } if widget_properties is None else widget_properties
         for (label, value) in items:
 
             if not label:
@@ -1073,7 +1061,7 @@ def display_menu(items,
     # Log the chosen choice.
     for label, val in items:
         if val is not None:
-            log("Choice: " + label)
+            log(f"Choice: {label}")
         else:
             log(label)
 
@@ -1085,7 +1073,7 @@ def display_menu(items,
 
         for label, val in items:
             if rv == val:
-                log("User chose: " + label)
+                log(f"User chose: {label}")
                 break
         else:
             log("No choice chosen.")
@@ -1120,8 +1108,10 @@ class TagQuotingDict(object):
             return rv
         else:
             if renpy.config.debug:
-                raise Exception("During an interpolation, '%s' was not found as a variable." % key)
-            return "<" + key + " unbound>"
+                raise Exception(
+                    f"During an interpolation, '{key}' was not found as a variable."
+                )
+            return f"<{key} unbound>"
 
 
 tag_quoting_dict = TagQuotingDict()
@@ -1140,8 +1130,7 @@ def predict_say(who, what):
     if isinstance(who, (str, unicode)):
         return renpy.store.predict_say(who, what)
 
-    predict = getattr(who, 'predict', None)
-    if predict:
+    if predict := getattr(who, 'predict', None):
         predict(what)
 
 
@@ -1295,11 +1284,7 @@ def pause(delay=None, music=None, with_none=None, hard=False, checkpoint=None):
     """
 
     if checkpoint is None:
-        if delay is not None:
-            checkpoint = False
-        else:
-            checkpoint = True
-
+        checkpoint = delay is None
     if renpy.config.skipping == "fast":
         return False
 
@@ -1318,11 +1303,7 @@ def pause(delay=None, music=None, with_none=None, hard=False, checkpoint=None):
     if (delay is not None) and renpy.game.after_rollback and roll_forward is None:
         delay = 0
 
-    if delay is None:
-        afm = " "
-    else:
-        afm = None
-
+    afm = " " if delay is None else None
     if hard or not renpy.store._dismiss_pause:
         renpy.ui.saybehavior(afm=afm, dismiss='dismiss_hard_pause')
     else:
@@ -1383,11 +1364,7 @@ def movie_cutscene(filename, delay=None, loops=0, stop_music=True):
     else:
         renpy.ui.pausebehavior(delay, False)
 
-    if renpy.game.log.forward:
-        roll_forward = True
-    else:
-        roll_forward = None
-
+    roll_forward = True if renpy.game.log.forward else None
     rv = renpy.ui.interact(suppress_overlay=True,
                            roll_forward=roll_forward)
 
@@ -1428,7 +1405,7 @@ def with_statement(trans, always=False, paired=None, clear=True):
     if renpy.config.skipping:
         trans = None
 
-    if not (renpy.game.preferences.transitions or always):
+    if not renpy.game.preferences.transitions and not always:
         trans = None
 
     renpy.exports.mode('with')
@@ -1439,21 +1416,18 @@ def with_statement(trans, always=False, paired=None, clear=True):
         if (trans is None) and (paired is None):
             return
 
-    if isinstance(trans, dict):
-
-        for k, v in trans.items():
-            if k is None:
-                continue
-
-            renpy.exports.transition(v, layer=k)
-
-        if None not in trans:
-            return
-
-        trans = trans[None]
-
-    else:
+    if not isinstance(trans, dict):
         return renpy.game.interface.do_with(trans, paired, clear=clear)
+    for k, v in trans.items():
+        if k is None:
+            continue
+
+        renpy.exports.transition(v, layer=k)
+
+    if None not in trans:
+        return
+
+    trans = trans[None]
 
 
 globals()["with"] = with_statement
@@ -1551,12 +1525,11 @@ def get_all_labels():
     Returns the set of all labels defined in the program, including labels
     defined for internal use in the libraries.
     """
-    rv = [ ]
-
-    for i in renpy.game.script.namemap.iterkeys():
-        if isinstance(i, basestring):
-            rv.append(i)
-
+    rv = [
+        i
+        for i in renpy.game.script.namemap.iterkeys()
+        if isinstance(i, basestring)
+    ]
     return renpy.python.RevertableSet(rv)
 
 
@@ -1723,7 +1696,7 @@ def screenshot(filename):
 
 
 @renpy_pure
-def version(tuple=False):  # @ReservedAssignment
+def version(tuple=False):    # @ReservedAssignment
     """
     :doc: renpy_version
 
@@ -1734,10 +1707,7 @@ def version(tuple=False):  # @ReservedAssignment
     version as an integer.
     """
 
-    if tuple:
-        return renpy.version_tuple
-
-    return renpy.version
+    return renpy.version_tuple if tuple else renpy.version
 
 
 version_string = renpy.version
@@ -1928,10 +1898,7 @@ def get_filename_line():
 
     n = renpy.game.script.namemap.get(renpy.game.context().current, None)
 
-    if n is None:
-        return "unknown", 0
-    else:
-        return n.filename, n.linenumber
+    return ("unknown", 0) if n is None else (n.filename, n.linenumber)
 
 
 # A file that log logs to.
@@ -1996,9 +1963,7 @@ curried_do_reshow_say = curry(do_reshow_say)
 
 
 def get_reshow_say(**kwargs):
-    kw = dict(renpy.store._last_say_kwargs)
-    kw.update(kwargs)
-
+    kw = dict(renpy.store._last_say_kwargs) | kwargs
     return curried_do_reshow_say(
         renpy.store._last_say_who,
         renpy.store._last_say_what,
@@ -2198,10 +2163,7 @@ def easy_displayable(d, none=False):
     :undocumented:
     """
 
-    if none:
-        return renpy.easy.displayable(d)
-    else:
-        return renpy.easy.displayable_or_none(d)
+    return renpy.easy.displayable(d) if none else renpy.easy.displayable_or_none(d)
 
 
 def quit_event():
@@ -2601,14 +2563,10 @@ def expand_predict(d):
     if not isinstance(d, basestring):
         return [ d ]
 
-    if not "*" in d:
+    if "*" not in d:
         return [ d ]
 
-    if "." in d:
-        l = list_files(False)
-    else:
-        l = list_images()
-
+    l = list_files(False) if "." in d else list_images()
     return fnmatch.filter(l, d)
 
 
@@ -2749,14 +2707,11 @@ def list_files(common=False):
         listing.
     """
 
-    rv = [ ]
-
-    for dir, fn in renpy.loader.listdirfiles(common):  # @ReservedAssignment
-        if fn.startswith("saves/"):
-            continue
-
-        rv.append(fn)
-
+    rv = [
+        fn
+        for dir, fn in renpy.loader.listdirfiles(common)
+        if not fn.startswith("saves/")
+    ]
     rv.sort()
 
     return rv
@@ -2882,11 +2837,7 @@ def variant(name):
     if isinstance(name, basestring):
         return name in renpy.config.variants
     else:
-        for n in name:
-            if n in renpy.config.variants:
-                return True
-
-        return False
+        return any(n in renpy.config.variants for n in name)
 
 
 def vibrate(duration):
@@ -3057,11 +3008,7 @@ def get_image_load_log(age=None):
     The image load log is only kept if config.developer = True.
     """
 
-    if age is not None:
-        deadline = time.time() - age
-    else:
-        deadline = 0
-
+    deadline = time.time() - age if age is not None else 0
     for i in renpy.display.im.cache.load_log:
         if i[0] < deadline:
             break
@@ -3381,13 +3328,13 @@ def add_layer(layer, above=None, below=None, menu_clear=True):
         try:
             index = layers.index(above) + 1
         except ValueError:
-            raise Exception("Layer '%s' does not exist." % above)
+            raise Exception(f"Layer '{above}' does not exist.")
 
     elif below is not None:
         try:
             index = layers.index(below)
         except ValueError:
-            raise Exception("Layer '%s' does not exist." % below)
+            raise Exception(f"Layer '{below}' does not exist.")
 
     else:
         raise Exception("The renpy.add_layer function requires either the above or below argument.")
@@ -3408,11 +3355,10 @@ def maximum_framerate(t):
 
     if renpy.display.interface is not None:
         renpy.display.interface.maximum_framerate(t)
+    elif t is None:
+        renpy.display.core.initial_maximum_framerate = 0
     else:
-        if t is None:
-            renpy.display.core.initial_maximum_framerate = 0
-        else:
-            renpy.display.core.initial_maximum_framerate = max(renpy.display.core.initial_maximum_framerate, t)
+        renpy.display.core.initial_maximum_framerate = max(renpy.display.core.initial_maximum_framerate, t)
 
 
 def is_start_interact():
@@ -3491,9 +3437,7 @@ def get_refresh_rate(precision=5):
 
     info = renpy.display.get_info()
     rv = info.refresh_rate
-    rv = round(rv / precision) * precision
-
-    return rv
+    return round(rv / precision) * precision
 
 
 def get_identifier_checkpoints(identifier):
